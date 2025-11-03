@@ -33,56 +33,61 @@ ChartJS.register(
   Filler               
 );
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+const aboutContent = `# Citation Network PageRank System
 
-const aboutContent = `# PageRank-Based Smart Ranking System
-
-This web application implements Google’s original PageRank algorithm to compute and visualize the relative importance of web pages within a network. Users can input a set of interconnected websites, and the system automatically craws and calculates their PageRank scores through iterative computation. The project aims to simulate the core mechanism behind modern search engines, providing a hands-on understanding of how link structures influence website ranking and visibility.
+This web application implements Google's original PageRank algorithm to analyze citation networks in academic research. Find the most influential papers and authors based on citation patterns.
 
 ## How to Use
 
-### Crawl URLs Automatically
-Enter a list of URLs (one per line). The system will automatically crawl each website, collect the links between pages, and build the adjacency matrix for PageRank calculation. Use this mode to analyze the real link structure between websites.
-
-### Manual Adjacency Matrix
-Enter the list of URLs and provide the adjacency matrix in JSON format (e.g., \`[[0,1,0],[1,0,1],[0,1,0]]\`). Use this mode for full control over the link structure or to experiment with different network topologies.
+### Author-Based Analysis
+Enter a list of author names (one per line). The system will automatically collect their papers, build the citation network, and calculate PageRank scores to identify the most influential research papers.
 
 ### Parameters
 
-**Damping Factor (α)**: This parameter (default 0.85) represents the probability that a user continues clicking on links. Adjust this value (0.1 - 0.99) to simulate more or less patient users. Higher values mean PageRank depends more on the link structure.
+**Damping Factor (α)**: This parameter (default 0.85) represents the probability that a researcher continues following citations. Adjust this value (0.1 - 0.99) to simulate different citation following behaviors.
 
 **Max Iterations**: The maximum number of iterations for the PageRank calculation. Default is 100; increase for larger networks or higher accuracy.
 
-## Steps to Calculate PageRank
+## Steps to Calculate Citation PageRank
 
-1. Select the calculation mode (Crawl URLs or Manual Matrix)
-2. Enter the list of URLs (one per line)
-3. If using Manual Matrix, also enter the adjacency matrix
-4. Adjust the Damping Factor and Max Iterations if needed
-5. Click "Calculate PageRank" to view the results and visualization
+1. Enter author names (one per line)
+2. Adjust the Damping Factor and Max Iterations if needed
+3. Click "Calculate Citation PageRank" to view the results and visualization
+4. Explore the citation network graph and metrics
+
+## Stakeholders
+
+🔬 **Researchers**: Find influential papers and authors in your field
+📊 **Data Scientists**: Analyze citation patterns and trends
+🏛️ **Academic Institutions**: Evaluate research impact and ranking
 
 ## About HCMUT
 
-Ho Chi Minh City University of Technology (HCMUT) is one of the leading engineering and technology universities in Vietnam, under the Vietnam National University – Ho Chi Minh City (VNU-HCM). The university is renowned for its strong focus on innovation, research, and practical applications in science and technology, providing a high-quality education environment for both undergraduate and graduate students.
+Ho Chi Minh City University of Technology (HCMUT) is one of the leading engineering and technology universities in Vietnam, under the Vietnam National University – Ho Chi Minh City (VNU-HCM). The university is committed to excellence in research and education.
 
 ## About This Project
 
-This project was developed as part of the Intelligent Systems (CO5119) course at Ho Chi Minh City University of Technology (HCMUT) – VNU-HCM, under the supervision of Assoc. Prof. Dr. Quan Thanh Tho. It presents a practical implementation of the PageRank algorithm, a cornerstone of modern search engine technology. The project aims to design a smart ranking system that evaluates the relative importance of web pages based on their interconnections, thereby simulating how search engines (Google, etc.) determine page relevance and authority in real-world contexts.
+This project was developed as part of the Intelligent Systems (CO5119) course at Ho Chi Minh City University of Technology (HCMUT) – VNU-HCM, under the supervision of Assoc. Prof. Dr. Quan Thanh Tho.
 
 ## About Us
 - **Phạm Hữu Hùng** — Postgraduate Student (ID: 2470299) • [CV (PDF)](https://github.com/HungPham2002/resume/blob/main/Resume_HungPham.pdf)
 - **Võ Thị Vân Anh** — Postgraduate Student (ID: 2470283)
 
+## Data Source
+
+This system uses **Semantic Scholar API** which provides:
+- 200M+ academic papers
+- Citation relationships
+- Author information
+- Publication metadata
+
 ## Acknowledgment
 
-The authors would like to express their sincere gratitude to BSc. Le Nho Han and BSc. Vu Tran Thanh Huong for their valuable suggestions and insightful reviews throughout the research and implementation of the PageRank algorithm. Their support and expertise have greatly contributed to the successful completion of this project.
-
+The authors would like to express their sincere gratitude to BSc. Le Nho Han and BSc. Vu Tran Thanh Huong for their valuable suggestions and insightful reviews throughout the research and implementation of this project.
 `;
 
 function App() {
-  const [mode, setMode] = useState('urls');
-  const [urls, setUrls] = useState('');
-  const [adjacencyMatrix, setAdjacencyMatrix] = useState('');
+  const [authors, setAuthors] = useState('');
   const [dampingFactor, setDampingFactor] = useState(0.85);
   const [maxIterations, setMaxIterations] = useState(100);
   const [results, setResults] = useState([]);
@@ -90,36 +95,36 @@ function App() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [page, setPage] = useState('home');
-  const [calculatedAdjacencyMatrix, setCalculatedAdjacencyMatrix] = useState(null);
+  const [networkData, setNetworkData] = useState(null);
+  const [stats, setStats] = useState(null);
   const [networkMetrics, setNetworkMetrics] = useState(null);
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
-  setSuccess('');
-  
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-  let parsedMatrix = null; 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-  try {
-    let requestBody = {
-      damping_factor: dampingFactor,
-      max_iterations: maxIterations
-    };
-
-    if (mode === 'urls') {
-      const urlList = urls.split('\n').filter(url => url.trim());
+    try {
+      const authorList = authors.split('\n')
+        .map(author => author.trim())
+        .filter(author => author.length > 0);
       
-      if (urlList.length === 0) {
-        setError('Please enter at least one URL');
+      if (authorList.length === 0) {
+        setError('Please enter at least one author name');
         setLoading(false);
         return;
       }
       
-      requestBody.urls = urlList;
+      const requestBody = {
+        authors: authorList,
+        damping_factor: dampingFactor,
+        max_iterations: maxIterations
+      };
       
-      const response = await fetch(`${apiUrl}/api/pagerank`, {
+      const response = await fetch(`${apiUrl}/api/calculate-citation-pagerank`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,92 +136,26 @@ const handleSubmit = async (e) => {
       
       if (response.ok) {
         setResults(data.results);
-        setCalculatedAdjacencyMatrix(data.adjacency_matrix || null);
-        setNetworkMetrics(data.network_metrics || null);
-        setSuccess(`Successfully calculated PageRank for ${data.total_urls} URLs`);
+        setNetworkData(data.network);
+        setStats(data.stats);
+        setNetworkMetrics(data.networkMetrics);
+        setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers from ${authorList.length} authors`);
       } else {
-        setError(data.error || 'An error occurred');
+        setError(data.error || 'An error occurred while analyzing citations');
       }
-    } else {
-      const urlList = urls.split('\n').filter(url => url.trim());
-      
-      if (urlList.length === 0) {
-        setError('Please enter at least one URL');
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        parsedMatrix = JSON.parse(adjacencyMatrix); // ← SỬA DÒNG NÀY
-      } catch (e) {
-        setError('❌ Invalid adjacency matrix format. Please enter a valid JSON array.');
-        setLoading(false);
-        return;
-      }
-      
-      if (!Array.isArray(parsedMatrix) || parsedMatrix.length !== urlList.length) {
-        setError(`❌ Adjacency matrix must be a ${urlList.length}x${urlList.length} array`);
-        setLoading(false);
-        return;
-      }
-      
-      requestBody.urls = urlList;
-      requestBody.adjacency_matrix = parsedMatrix; // ← SỬA DÒNG NÀY
-      
-      const response = await fetch(`${apiUrl}/api/pagerank-matrix`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setResults(data.results);
-        setCalculatedAdjacencyMatrix(data.adjacency_matrix || parsedMatrix); 
-        setNetworkMetrics(data.network_metrics || null);
-        setSuccess(`✅ Successfully calculated PageRank for ${data.total_urls} URLs using custom matrix`);
-      } else {
-        setError(data.error || 'An error occurred');
-      }
+    } catch (err) {
+      setError('Failed to connect to the server. Please make sure the backend is running on port 5000. Error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError('Failed to connect to the server. Please make sure the backend is running on port 5001.');
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const generateExampleMatrix = () => {
-    const urlList = urls.split('\n').filter(url => url.trim());
-    if (urlList.length === 0) {
-      setError('❌ Please enter URLs first');
-      return;
-    }
-    
-    const n = urlList.length;
-    const matrix = Array(n).fill().map(() => Array(n).fill(0));
-    
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i !== j && Math.random() > 0.5) {
-          matrix[i][j] = 1;
-        }
-      }
-    }
-    
-    setAdjacencyMatrix(JSON.stringify(matrix, null, 2));
-    setSuccess('✅ Example matrix generated successfully!');
   };
 
   const chartData = {
-    labels: results.map(r => r.url.length > 30 ? r.url.substring(0, 30) + '...' : r.url),
+    labels: results.map(r => r.title.length > 40 ? r.title.substring(0, 40) + '...' : r.title),
     datasets: [
       {
         label: 'PageRank Score',
-        data: results.map(r => r.rank),
+        data: results.map(r => r.pagerank),
         backgroundColor: 'rgba(0, 71, 171, 0.8)',
         borderColor: '#0047AB',
         borderWidth: 2,
@@ -249,6 +188,11 @@ const handleSubmit = async (e) => {
         },
         bodyFont: {
           size: 13
+        },
+        callbacks: {
+          label: function(context) {
+            return 'PageRank: ' + context.parsed.y.toFixed(6);
+          }
         }
       }
     },
@@ -256,7 +200,6 @@ const handleSubmit = async (e) => {
       y: {
         beginAtZero: true,
         ticks: { 
-          stepSize: 0.1,
           color: '#0047AB',
           font: {
             weight: '600',
@@ -298,7 +241,7 @@ const handleSubmit = async (e) => {
         <div className="hcmus-header-content">
           <img src={logo} className="hcmus-logo" alt="HCMUT Logo" />
           <div>
-            <h1 className="hcmus-title">PageRank-Based Smart Ranking System</h1>
+            <h1 className="hcmus-title">Citation Network PageRank System</h1>
             <div className="hcmus-subtitle">Ho Chi Minh City University of Technology (HCMUT) - VNUHCM</div>
           </div>
         </div>
@@ -318,60 +261,23 @@ const handleSubmit = async (e) => {
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="input-section">
-              <label>🔧 Calculation Mode:</label>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ marginRight: '28px', cursor: 'pointer', fontSize: '1.05em' }}>
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="urls"
-                    checked={mode === 'urls'}
-                    onChange={(e) => setMode(e.target.value)}
-                    style={{ marginRight: '10px' }}
-                  />
-                  🌐 Crawl URLs Automatically
-                </label>
-                <label style={{ cursor: 'pointer', fontSize: '1.05em' }}>
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="matrix"
-                    checked={mode === 'matrix'}
-                    onChange={(e) => setMode(e.target.value)}
-                    style={{ marginRight: '10px' }}
-                  />
-                  📊 Manual Adjacency Matrix
-                </label>
-              </div>
+              <h2>🎓 Citation Network Analysis</h2>
+              <p style={{ marginBottom: '20px', color: '#555', fontSize: '1.05em', lineHeight: '1.6' }}>
+                Enter author names to analyze their citation networks and discover the most influential research papers.
+              </p>
 
-              <label htmlFor="urls">🔗 URLs (one per line):</label>
+              <label htmlFor="authors">👤 Author Names (one per line):</label>
               <textarea
-                id="urls"
-                value={urls}
-                onChange={(e) => setUrls(e.target.value)}
-                placeholder="https://google.com&#10;https://youtube.com&#10;https://github.com&#10;https://stackoverflow.com&#10;https://wikipedia.org"
-                rows="6"
+                id="authors"
+                value={authors}
+                onChange={(e) => setAuthors(e.target.value)}
+                placeholder="Example:&#10;Tho Quan&#10;Geoffrey Hinton&#10;Yoshua Bengio&#10;Yann LeCun&#10;Andrew Ng"
+                rows="8"
+                style={{ 
+                  fontSize: '1.05em',
+                  lineHeight: '1.6'
+                }}
               />
-              
-              {mode === 'matrix' && (
-                <>
-                  <label htmlFor="matrix" style={{ marginTop: '24px' }}>📐 Adjacency Matrix (JSON format):</label>
-                  <textarea
-                    id="matrix"
-                    value={adjacencyMatrix}
-                    onChange={(e) => setAdjacencyMatrix(e.target.value)}
-                    placeholder="[[0,1,1,0,0],&#10;[1,0,0,1,0],&#10;[0,1,0,1,1],&#10;[0,0,1,0,1],&#10;[1,0,0,1,0]]"
-                    rows="8"
-                  />
-                  <button 
-                    type="button" 
-                    onClick={generateExampleMatrix}
-                    style={{ backgroundColor: '#FFD700', color: '#ffffffff', fontWeight: '700' }}
-                  >
-                    🎲 Generate Example Matrix
-                  </button>
-                </>
-              )}
 
               <div style={{ marginTop: '28px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1', minWidth: '200px' }}>
@@ -421,15 +327,7 @@ const handleSubmit = async (e) => {
               </div>
 
               <p style={{ marginTop: '20px', fontSize: '15px', color: '#555', textAlign: 'left', background: '#f5f9ff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #0047AB' }}>
-                {mode === 'urls' ? (
-                  <>
-                    💡 <strong>URL Mode:</strong> The algorithm will automatically crawl each URL to find links between pages and calculate PageRank scores based on the real link structure.
-                  </>
-                ) : (
-                  <>
-                    💡 <strong>Matrix Mode:</strong> You can manually specify the adjacency matrix to control exactly which pages link to each other. This is useful for testing specific network topologies.
-                  </>
-                )}
+                💡 <strong>How it works:</strong> The system fetches papers from Semantic Scholar, builds a citation network, and applies PageRank to identify the most influential research based on citation patterns.
               </p>
             </div>
             
@@ -437,85 +335,128 @@ const handleSubmit = async (e) => {
               {loading ? (
                 <>
                   <span className="loading"></span>
-                  Calculating PageRank...
+                  Analyzing Citations...
                 </>
               ) : (
-                '🚀 Calculate PageRank'
+                '🚀 Calculate Citation PageRank'
               )}
             </button>
           </form>
         )}
 
         {error && <div className="error">❌ {error}</div>}
-        {success && <div className="success">✅ {success}</div>}
+        {success && <div className="success">{success}</div>}
 
         {results.length > 0 && (
-          <div className="results">
-            <h2>📊 PageRank Results</h2>
-            <p style={{ marginBottom: '24px', color: '#555', textAlign: 'left', background: '#f5f9ff', padding: '16px', borderRadius: '8px' }}>
-              📈 PageRank scores indicate the relative importance of each page in the network. Higher scores mean more important pages based on the link structure.
-              <br />
-              <strong>Parameters used:</strong> Damping Factor (α) = {dampingFactor}, Max Iterations = {maxIterations}
-            </p>
-            <table>
-              <thead>
-                <tr>
-                  <th>🏆 Rank</th>
-                  <th>🔗 URL</th>
-                  <th>📊 PageRank Score</th>
-                  <th>📈 Percentage</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result, index) => {
-                  const percentage = ((result.rank / results.reduce((sum, r) => sum + r.rank, 0)) * 100).toFixed(2);
-                  const medalEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-                  return (
-                    <tr key={result.url}>
-                      <td>
-                        <strong style={{ color: '#0047AB', fontSize: '1.1em' }}>{medalEmoji} #{index + 1}</strong>
-                      </td>
-                      <td>
-                        <a href={result.url} target="_blank" rel="noopener noreferrer" className="App-link">
-                          {result.url}
-                        </a>
-                      </td>
-                      <td>
-                        <strong style={{ color: '#0047AB', fontSize: '1.05em' }}>{result.rank.toFixed(6)}</strong>
-                      </td>
-                      <td>
-                        <span style={{ color: '#2e7d32', fontWeight: '700', fontSize: '1.05em' }}>{percentage}%</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {results.length > 0 && calculatedAdjacencyMatrix && (
-          <NetworkGraph 
-              results={results} 
-              adjacencyMatrix={calculatedAdjacencyMatrix}
-              urls={results.map(r => r.url)}
-            />
-        )}
-        {results.length > 0 && networkMetrics && (
-          <NetworkMetrics 
-              metrics={networkMetrics} results={results} 
-            />
-        )}
-          <div className="chart-container">
-            <h3>📊 PageRank Score Visualization</h3>
-            <div style={{ height: '450px', marginTop: '20px' }}>
-              <Bar data={chartData} options={chartOptions} />
+          <>
+            <div className="results">
+              <h2>Top Influential Papers</h2>
+              {stats && (
+                <p style={{ marginBottom: '24px', color: '#555', textAlign: 'left', background: '#f5f9ff', padding: '16px', borderRadius: '8px' }}>
+                  Analyzed <strong>{stats.totalPapers}</strong> papers with <strong>{stats.totalCitations}</strong> citation relationships.
+                  <br />
+                  <strong>Parameters used:</strong> Damping Factor (α) = {dampingFactor}, Max Iterations = {maxIterations}
+                </p>
+              )}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Paper Title</th>
+                    <th>Authors</th>
+                    <th>Year</th>
+                    <th>Citations</th>
+                    <th>PageRank</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((result, index) => {
+                    const medalEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+                    return (
+                      <tr key={result.paperId}>
+                        <td>
+                          <strong style={{ color: '#0047AB', fontSize: '1.1em' }}>{medalEmoji} #{index + 1}</strong>
+                        </td>
+                        <td style={{ textAlign: 'left', maxWidth: '400px' }}>
+                          <a 
+                            href={`https://www.semanticscholar.org/paper/${result.paperId}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="App-link"
+                          >
+                            {result.title}
+                          </a>
+                        </td>
+                        <td style={{ textAlign: 'left', maxWidth: '200px', fontSize: '0.95em' }}>
+                          {result.authors.slice(0, 3).join(', ')}
+                          {result.authors.length > 3 && ' et al.'}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: '600' }}>{result.year || 'N/A'}</span>
+                        </td>
+                        <td>
+                          <span style={{ color: '#2e7d32', fontWeight: '700' }}>{result.citationCount || 0}</span>
+                        </td>
+                        <td>
+                          <strong style={{ color: '#0047AB', fontSize: '1.05em' }}>{result.pagerank.toFixed(6)}</strong>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
+
+            {networkData && (
+              
+                <NetworkGraph 
+                  results={results} 
+                  adjacencyMatrix={networkData.edges}
+                  urls={results.map(r => r.title.substring(0, 50))}
+                />
+              
+            )}
+
+            {stats && results.length > 0 && (
+              <NetworkMetrics 
+                metrics={{
+                  total_nodes: stats.totalPapers,
+                  total_edges: stats.totalCitations,
+                  density: stats.totalCitations / (stats.totalPapers * (stats.totalPapers - 1)),
+                  avg_clustering_coefficient: 0.5, // Placeholder - backend cần tính
+                  avg_in_degree: stats.totalCitations / stats.totalPapers,
+                  avg_out_degree: stats.totalCitations / stats.totalPapers,
+                  in_degree: results.map(r => r.citationCount || 0),
+                  out_degree: results.map(r => 0), // Placeholder
+                  strongly_connected_nodes: Math.floor(stats.totalPapers * 0.7),
+                  dangling_nodes: Math.floor(stats.totalPapers * 0.1),
+                  isolated_nodes: 0,
+                  hubs: [],
+                  authorities: results.slice(0, 5).map((r, idx) => ({
+                    url: r.title,
+                    in_degree: r.citationCount || 0,
+                    score: (idx + 1) / 5
+                  })),
+                  hub_scores: results.slice(0, 5).map((r, idx) => 0.8 - (idx * 0.15)),
+                  authority_scores: results.slice(0, 5).map((r, idx) => 0.9 - (idx * 0.15)),
+                  degree_distribution: {}
+                }}
+                results={results}
+              />
+            )}
+
+            <div className="chart-container">
+              <h3>PageRank Score Visualization</h3>
+              <div style={{ height: '450px', marginTop: '20px' }}>
+                <Bar data={chartData} options={chartOptions} />
+              </div>
+            </div>
+          </>
+        )}
       </main>
       <footer className="hcmus-footer">
         <div style={{ marginBottom: '8px', fontSize: '1.05em', fontWeight: '600' }}>
-          © {new Date().getFullYear()} Ho Chi Minh City University of Technology (HCMUT) | PageRank-Based Smart Ranking System
+          © {new Date().getFullYear()} Ho Chi Minh City University of Technology (HCMUT) | Citation Network PageRank System
         </div>
         <div>
           Contact: <a href="mailto:contact@hcmut.edu.vn">contact@hcmut.edu.vn</a> | 

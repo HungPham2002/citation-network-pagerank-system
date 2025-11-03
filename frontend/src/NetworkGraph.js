@@ -2,12 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import './NetworkGraph.css';
 
-const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
+const NetworkGraph = ({ results, adjacencyMatrix }) => {
   const svgRef = useRef();
   const tooltipRef = useRef();
 
   useEffect(() => {
-    if (!results || results.length === 0 || !adjacencyMatrix) return;
+    if (!results || results.length === 0) return;
 
     // Clear previous graph
     d3.select(svgRef.current).selectAll('*').remove();
@@ -33,29 +33,51 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
     
     svg.call(zoom);
 
-    // Prepare data
+    // Prepare data - UPDATED for citation network
     const nodes = results.map((result, i) => ({
       id: i,
-      label: result.url,
-      rank: result.rank,
-      shortLabel: getShortUrl(result.url)
+      paperId: result.paperId,
+      title: result.title,
+      pagerank: result.pagerank,
+      citationCount: result.citationCount,
+      authors: result.authors,
+      year: result.year,
+      shortTitle: getShortTitle(result.title)
     }));
 
-    // Calculate max rank for scaling
-    const maxRank = Math.max(...results.map(r => r.rank));
-    const minRank = Math.min(...results.map(r => r.rank));
+    // Calculate max/min pagerank for scaling
+    const maxRank = Math.max(...results.map(r => r.pagerank));
+    const minRank = Math.min(...results.map(r => r.pagerank));
 
-    // Create links from adjacency matrix
+    // Create links from edges (if provided)
     const links = [];
-    for (let i = 0; i < adjacencyMatrix.length; i++) {
-      for (let j = 0; j < adjacencyMatrix[i].length; j++) {
-        if (adjacencyMatrix[i][j] > 0) {
-          links.push({
-            source: i,
-            target: j,
-            value: adjacencyMatrix[i][j]
-          });
+    if (adjacencyMatrix && adjacencyMatrix.length > 0) {
+      // If adjacency matrix is provided as 2D array
+      if (Array.isArray(adjacencyMatrix[0])) {
+        for (let i = 0; i < adjacencyMatrix.length; i++) {
+          for (let j = 0; j < adjacencyMatrix[i].length; j++) {
+            if (adjacencyMatrix[i][j] > 0) {
+              links.push({
+                source: i,
+                target: j,
+                value: adjacencyMatrix[i][j]
+              });
+            }
+          }
         }
+      } else {
+        // If edges provided as array of {from, to}
+        adjacencyMatrix.forEach(edge => {
+          const sourceIdx = nodes.findIndex(n => n.paperId === edge.from);
+          const targetIdx = nodes.findIndex(n => n.paperId === edge.to);
+          if (sourceIdx !== -1 && targetIdx !== -1) {
+            links.push({
+              source: sourceIdx,
+              target: targetIdx,
+              value: 1
+            });
+          }
+        });
       }
     }
 
@@ -82,7 +104,7 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
       .force('link', d3.forceLink(links).id(d => d.id).distance(150))
       .force('charge', d3.forceManyBody().strength(-800))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => radiusScale(d.rank) + 10));
+      .force('collision', d3.forceCollide().radius(d => radiusScale(d.pagerank) + 10));
 
     // Create arrow markers for directed edges
     svg.append('defs').selectAll('marker')
@@ -118,8 +140,8 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
 
     // Add circles for nodes
     node.append('circle')
-      .attr('r', d => radiusScale(d.rank))
-      .attr('fill', d => colorScale(d.rank))
+      .attr('r', d => radiusScale(d.pagerank))
+      .attr('fill', d => colorScale(d.pagerank))
       .attr('stroke', '#fff')
       .attr('stroke-width', 3)
       .style('cursor', 'pointer')
@@ -145,13 +167,16 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
           .style('top', (event.pageY - 10) + 'px')
           .html(`
             <div class="tooltip-content">
-              <strong style="color: #0047AB; font-size: 1.1em;">🌐 ${d.label}</strong>
+              <strong style="color: #0047AB; font-size: 1.1em;">📄 ${d.title.substring(0, 60)}${d.title.length > 60 ? '...' : ''}</strong>
               <hr style="margin: 8px 0; border-color: #e8f0fe;">
               <div style="display: grid; gap: 6px;">
-                <div><strong>PageRank:</strong> ${d.rank.toFixed(6)}</div>
-                <div><strong>In-degree:</strong> ${inDegree[d.id]} links</div>
-                <div><strong>Out-degree:</strong> ${outDegree[d.id]} links</div>
-                <div><strong>Rank:</strong> #${results.findIndex(r => r.url === d.label) + 1} of ${results.length}</div>
+                <div><strong>Authors:</strong> ${d.authors.slice(0, 3).join(', ')}${d.authors.length > 3 ? ' et al.' : ''}</div>
+                <div><strong>Year:</strong> ${d.year || 'N/A'}</div>
+                <div><strong>PageRank:</strong> ${d.pagerank.toFixed(6)}</div>
+                <div><strong>Citations:</strong> ${d.citationCount || 0}</div>
+                <div><strong>In-degree:</strong> ${inDegree[d.id]} citations</div>
+                <div><strong>Out-degree:</strong> ${outDegree[d.id]} references</div>
+                <div><strong>Rank:</strong> #${results.findIndex(r => r.paperId === d.paperId) + 1} of ${results.length}</div>
               </div>
             </div>
           `);
@@ -171,28 +196,28 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
         d3.select(tooltipRef.current).style('opacity', 0);
       })
       .on('click', (event, d) => {
-        window.open(d.label, '_blank');
+        window.open(`https://www.semanticscholar.org/paper/${d.paperId}`, '_blank');
       });
 
     // Add ranking badge
     node.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', 5)
-      .attr('font-size', d => Math.max(10, radiusScale(d.rank) * 0.4))
+      .attr('font-size', d => Math.max(10, radiusScale(d.pagerank) * 0.4))
       .attr('font-weight', 'bold')
       .attr('fill', '#fff')
       .attr('pointer-events', 'none')
-      .text((d, i) => `#${results.findIndex(r => r.url === d.label) + 1}`);
+      .text((d, i) => `#${results.findIndex(r => r.paperId === d.paperId) + 1}`);
 
     // Add labels below nodes
     node.append('text')
       .attr('text-anchor', 'middle')
-      .attr('dy', d => radiusScale(d.rank) + 18)
+      .attr('dy', d => radiusScale(d.pagerank) + 18)
       .attr('font-size', 11)
       .attr('font-weight', '600')
       .attr('fill', '#0047AB')
       .attr('pointer-events', 'none')
-      .text(d => d.shortLabel);
+      .text(d => d.shortTitle);
 
     // Update positions on simulation tick
     simulation.on('tick', () => {
@@ -230,21 +255,14 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
         .on('end', dragended);
     }
 
-    // Helper function to shorten URL
-    function getShortUrl(url) {
-      try {
-        const urlObj = new URL(url);
-        let domain = urlObj.hostname.replace('www.', '');
-        if (domain.length > 20) {
-          domain = domain.substring(0, 17) + '...';
-        }
-        return domain;
-      } catch {
-        return url.substring(0, 20) + '...';
-      }
+    // Helper function to shorten title
+    function getShortTitle(title) {
+      if (!title) return 'Unknown';
+      if (title.length <= 30) return title;
+      return title.substring(0, 27) + '...';
     }
 
-  }, [results, adjacencyMatrix, urls]);
+  }, [results, adjacencyMatrix]);
 
   if (!results || results.length === 0) {
     return null;
@@ -253,7 +271,7 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
   return (
     <div className="network-graph-container">
       <div className="graph-header">
-        <h3>🌐 Interactive Network Graph Visualization</h3>
+        <h3>Citation Network Graph Visualization</h3>
         <div className="graph-controls">
           <div className="legend">
             <div className="legend-item">
@@ -262,16 +280,16 @@ const NetworkGraph = ({ results, adjacencyMatrix, urls }) => {
             </div>
             <div className="legend-item">
               <div className="legend-icon">⭕</div>
-              <span>Node size = PageRank importance</span>
+              <span>Node size = Paper importance</span>
             </div>
             <div className="legend-item">
               <div className="legend-icon">➡️</div>
-              <span>Arrow = Link direction</span>
+              <span>Arrow = Citation direction</span>
             </div>
           </div>
         </div>
         <p className="graph-instructions">
-          💡 <strong>Tip:</strong> Hover over nodes to see details | Click to visit URL | Drag nodes to rearrange | Scroll to zoom
+          💡 <strong>Tip:</strong> Hover over nodes to see paper details | Click to view on Semantic Scholar | Drag nodes to rearrange | Scroll to zoom
         </p>
       </div>
       <svg ref={svgRef}></svg>

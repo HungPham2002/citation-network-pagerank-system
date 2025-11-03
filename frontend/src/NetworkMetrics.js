@@ -12,7 +12,6 @@ import {
 } from 'chart.js';
 import './NetworkMetrics.css';
 
-// Register components (chỉ cần register một lần, nhưng để chắc chắn)
 ChartJS.register(
   ArcElement,
   RadialLinearScale,
@@ -30,7 +29,7 @@ const NetworkMetrics = ({ metrics, results }) => {
   const inDegreeData = {
     labels: results.map((r, i) => `#${i + 1}`),
     datasets: [{
-      label: 'In-Degree',
+      label: 'In-Degree (Citations)',
       data: metrics.in_degree,
       backgroundColor: 'rgba(54, 162, 235, 0.8)',
       borderColor: 'rgba(54, 162, 235, 1)',
@@ -43,7 +42,7 @@ const NetworkMetrics = ({ metrics, results }) => {
   const outDegreeData = {
     labels: results.map((r, i) => `#${i + 1}`),
     datasets: [{
-      label: 'Out-Degree',
+      label: 'Out-Degree (References)',
       data: metrics.out_degree,
       backgroundColor: 'rgba(255, 99, 132, 0.8)',
       borderColor: 'rgba(255, 99, 132, 1)',
@@ -73,7 +72,7 @@ const NetworkMetrics = ({ metrics, results }) => {
     }]
   };
 
-  // Prepare Radar chart for top 5 nodes (PageRank, Hub, Authority, In-Degree, Out-Degree)
+  // Prepare Radar chart for top 5 nodes
   const topNodes = results.slice(0, 5);
   const radarData = {
     labels: ['PageRank', 'Hub Score', 'Authority Score', 'In-Degree', 'Out-Degree'],
@@ -86,10 +85,15 @@ const NetworkMetrics = ({ metrics, results }) => {
         'rgba(153, 102, 255, 0.6)'
       ];
       
+      // UPDATED: Use title instead of url
+      const label = result.title && result.title.length > 30 
+        ? result.title.substring(0, 30) + '...' 
+        : result.title || 'Unknown';
+      
       return {
-        label: result.url.length > 20 ? result.url.substring(0, 20) + '...' : result.url,
+        label: label,
         data: [
-          result.rank * 10, // Scale PageRank for visibility
+          result.pagerank * 10, // UPDATED: pagerank instead of rank
           metrics.hub_scores[idx] * 10,
           metrics.authority_scores[idx] * 10,
           metrics.in_degree[idx],
@@ -131,19 +135,19 @@ const NetworkMetrics = ({ metrics, results }) => {
   return (
     <div className="network-metrics-container">
       <div className="metrics-header">
-        <h3>🔢 Network Metrics Panel</h3>
+        <h3>🔢 Citation Network Metrics Panel</h3>
         <p className="metrics-description">
-          💡 Comprehensive analysis of network structure, connectivity, and node importance
+          💡 Comprehensive analysis of citation network structure, connectivity, and paper importance
         </p>
       </div>
 
       {/* Overview Cards */}
       <div className="metrics-overview">
         <div className="metric-card">
-          <div className="metric-icon">🌐</div>
+          <div className="metric-icon">📄</div>
           <div className="metric-content">
             <div className="metric-value">{metrics.total_nodes}</div>
-            <div className="metric-label">Total Nodes</div>
+            <div className="metric-label">Total Papers</div>
           </div>
         </div>
 
@@ -151,7 +155,7 @@ const NetworkMetrics = ({ metrics, results }) => {
           <div className="metric-icon">🔗</div>
           <div className="metric-content">
             <div className="metric-value">{metrics.total_edges}</div>
-            <div className="metric-label">Total Edges</div>
+            <div className="metric-label">Total Citations</div>
           </div>
         </div>
 
@@ -175,7 +179,7 @@ const NetworkMetrics = ({ metrics, results }) => {
           <div className="metric-icon">📥</div>
           <div className="metric-content">
             <div className="metric-value">{metrics.avg_in_degree.toFixed(1)}</div>
-            <div className="metric-label">Avg In-Degree</div>
+            <div className="metric-label">Avg Citations</div>
           </div>
         </div>
 
@@ -183,44 +187,40 @@ const NetworkMetrics = ({ metrics, results }) => {
           <div className="metric-icon">📤</div>
           <div className="metric-content">
             <div className="metric-value">{metrics.avg_out_degree.toFixed(1)}</div>
-            <div className="metric-label">Avg Out-Degree</div>
+            <div className="metric-label">Avg References</div>
           </div>
         </div>
       </div>
 
       {/* Charts Grid */}
       <div className="metrics-charts-grid">
-        {/* In-Degree Distribution */}
         <div className="chart-box">
-          <h4>In-Degree Distribution</h4>
-          <p className="chart-description">Number of incoming links to each node</p>
+          <h4>In-Degree Distribution (Citations Received)</h4>
+          <p className="chart-description">Number of times each paper is cited</p>
           <div style={{ height: '300px' }}>
             <Bar data={inDegreeData} options={chartOptions} />
           </div>
         </div>
 
-        {/* Out-Degree Distribution */}
         <div className="chart-box">
-          <h4>Out-Degree Distribution</h4>
-          <p className="chart-description">Number of outgoing links from each node</p>
+          <h4>Out-Degree Distribution (References Made)</h4>
+          <p className="chart-description">Number of papers each paper references</p>
           <div style={{ height: '300px' }}>
             <Bar data={outDegreeData} options={chartOptions} />
           </div>
         </div>
 
-        {/* Node Types Breakdown */}
         <div className="chart-box">
-          <h4>Node Types Distribution</h4>
-          <p className="chart-description">Classification of nodes by connectivity</p>
+          <h4>Paper Types Distribution</h4>
+          <p className="chart-description">Classification of papers by connectivity</p>
           <div style={{ height: '300px' }}>
             <Doughnut data={nodeTypesData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
         </div>
 
-        {/* Multi-Metric Radar */}
         <div className="chart-box">
-          <h4>Top 5 Nodes - Multi-Metric Analysis</h4>
-          <p className="chart-description">Comprehensive comparison of top-ranked nodes</p>
+          <h4>Top 5 Papers - Multi-Metric Analysis</h4>
+          <p className="chart-description">Comprehensive comparison of top-ranked papers</p>
           <div style={{ height: '300px' }}>
             <Radar data={radarData} options={radarOptions} />
           </div>
@@ -230,18 +230,18 @@ const NetworkMetrics = ({ metrics, results }) => {
       {/* Hubs and Authorities */}
       <div className="hub-authority-section">
         <div className="hub-box">
-          <h4>🌟 Top Hubs (High Out-Degree)</h4>
-          <p className="section-description">Nodes that link to many other pages</p>
-          {metrics.hubs.length > 0 ? (
+          <h4>🌟 Top Hubs (High References)</h4>
+          <p className="section-description">Papers that reference many other papers</p>
+          {metrics.hubs && metrics.hubs.length > 0 ? (
             <ul className="hub-list">
               {metrics.hubs.map((hub, idx) => (
                 <li key={idx}>
                   <span className="rank-badge">#{idx + 1}</span>
-                  <a href={hub.url} target="_blank" rel="noopener noreferrer" className="hub-url">
-                    {hub.url}
+                  <a href={hub.url || '#'} target="_blank" rel="noopener noreferrer" className="hub-url">
+                    {hub.url || 'Paper ' + (idx + 1)}
                   </a>
                   <span className="hub-score">
-                    📤 {hub.out_degree} links | Score: {(hub.score * 100).toFixed(1)}%
+                    📤 {hub.out_degree} refs | Score: {(hub.score * 100).toFixed(1)}%
                   </span>
                 </li>
               ))}
@@ -252,18 +252,18 @@ const NetworkMetrics = ({ metrics, results }) => {
         </div>
 
         <div className="authority-box">
-          <h4>👑 Top Authorities (High In-Degree)</h4>
-          <p className="section-description">Nodes that receive links from many pages</p>
-          {metrics.authorities.length > 0 ? (
+          <h4>👑 Top Authorities (Highly Cited)</h4>
+          <p className="section-description">Papers that receive many citations</p>
+          {metrics.authorities && metrics.authorities.length > 0 ? (
             <ul className="authority-list">
               {metrics.authorities.map((auth, idx) => (
                 <li key={idx}>
                   <span className="rank-badge gold">#{idx + 1}</span>
-                  <a href={auth.url} target="_blank" rel="noopener noreferrer" className="authority-url">
-                    {auth.url}
+                  <a href={auth.url || '#'} target="_blank" rel="noopener noreferrer" className="authority-url">
+                    {auth.url || 'Paper ' + (idx + 1)}
                   </a>
                   <span className="authority-score">
-                    📥 {auth.in_degree} links | Score: {(auth.score * 100).toFixed(1)}%
+                    📥 {auth.in_degree} cites | Score: {(auth.score * 100).toFixed(1)}%
                   </span>
                 </li>
               ))}
@@ -276,7 +276,7 @@ const NetworkMetrics = ({ metrics, results }) => {
 
       {/* Insights Panel */}
       <div className="insights-panel">
-        <h4>💡 Network Insights</h4>
+        <h4>💡 Citation Network Insights</h4>
         <div className="insights-grid">
           <div className="insight-item">
             <span className="insight-icon">
@@ -286,10 +286,10 @@ const NetworkMetrics = ({ metrics, results }) => {
               <strong>Density: {(metrics.density * 100).toFixed(1)}%</strong>
               <p>
                 {metrics.density > 0.5
-                  ? 'Highly connected network with strong inter-linking'
+                  ? 'Highly connected research network with strong cross-citations'
                   : metrics.density > 0.2
-                  ? 'Moderately connected network'
-                  : 'Sparse network with limited connections'}
+                  ? 'Moderately connected research network'
+                  : 'Sparse network with limited cross-citations'}
               </p>
             </div>
           </div>
@@ -299,11 +299,11 @@ const NetworkMetrics = ({ metrics, results }) => {
               {metrics.dangling_nodes === 0 ? '✅' : '⚠️'}
             </span>
             <div>
-              <strong>{metrics.dangling_nodes} Dangling Node(s)</strong>
+              <strong>{metrics.dangling_nodes} Paper(s) With No References</strong>
               <p>
                 {metrics.dangling_nodes === 0
-                  ? 'All nodes have outbound links - good link structure'
-                  : `${metrics.dangling_nodes} node(s) have no outbound links - may need attention`}
+                  ? 'All papers have outbound references - comprehensive literature review'
+                  : `${metrics.dangling_nodes} paper(s) have no outbound references`}
               </p>
             </div>
           </div>
@@ -313,11 +313,11 @@ const NetworkMetrics = ({ metrics, results }) => {
               {metrics.isolated_nodes === 0 ? '✅' : '❌'}
             </span>
             <div>
-              <strong>{metrics.isolated_nodes} Isolated Node(s)</strong>
+              <strong>{metrics.isolated_nodes} Isolated Paper(s)</strong>
               <p>
                 {metrics.isolated_nodes === 0
-                  ? 'No isolated nodes - fully connected network'
-                  : `${metrics.isolated_nodes} node(s) are completely isolated`}
+                  ? 'No isolated papers - fully connected citation network'
+                  : `${metrics.isolated_nodes} paper(s) are completely isolated`}
               </p>
             </div>
           </div>
@@ -330,10 +330,10 @@ const NetworkMetrics = ({ metrics, results }) => {
               <strong>Clustering: {metrics.avg_clustering_coefficient.toFixed(3)}</strong>
               <p>
                 {metrics.avg_clustering_coefficient > 0.6
-                  ? 'High clustering - nodes form tight communities'
+                  ? 'High clustering - papers form tight research communities'
                   : metrics.avg_clustering_coefficient > 0.3
-                  ? 'Moderate clustering - some community structure'
-                  : 'Low clustering - nodes are loosely connected'}
+                  ? 'Moderate clustering - some research community structure'
+                  : 'Low clustering - papers are loosely connected'}
               </p>
             </div>
           </div>

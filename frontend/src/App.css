@@ -130,9 +130,17 @@ body, .App, html {
   border-top-color: #FFD700;
 }
 
+.input-section h2 {
+  color: #0047AB;
+  margin-bottom: 12px;
+  font-size: 1.8em;
+  font-weight: 700;
+}
+
 .input-section label {
   display: block;
   margin-bottom: 14px;
+  margin-top: 20px;
   font-weight: 600;
   color: #0047AB;
   font-size: 1.1em;
@@ -147,7 +155,7 @@ textarea, input[type="number"] {
   font-size: 15px;
   resize: vertical;
   min-height: 100px;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: 'Roboto', Arial, sans-serif;
   transition: all 0.3s ease;
   box-sizing: border-box;
   background: #fafbff;
@@ -210,16 +218,6 @@ button:disabled {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-}
-
-button[style*="backgroundColor: #4CAF50"] {
-  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
-  color: #003d82 !important;
-  font-weight: 700;
-}
-
-button[style*="backgroundColor: #4CAF50"]:hover {
-  background: linear-gradient(135deg, #FFA500 0%, #FFD700 100%) !important;
 }
 
 /* Messages */
@@ -304,6 +302,13 @@ tr:last-child td {
   border-bottom: none;
 }
 
+/* Paper Title Style */
+.paper-title {
+  font-weight: 500;
+  color: #1a1a1a;
+  max-width: 400px;
+}
+
 .App-link {
   color: #0047AB;
   text-decoration: none;
@@ -323,6 +328,7 @@ tr:last-child td {
   border-radius: 16px;
   box-shadow: 0 6px 24px rgba(0, 71, 171, 0.1);
   padding: 36px 32px;
+  margin-top: 36px;
   margin-bottom: 36px;
   border: 2px solid #e8f0fe;
   border-top: 4px solid #0047AB;
@@ -377,14 +383,6 @@ tr:last-child td {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-/* Radio Buttons */
-input[type="radio"] {
-  accent-color: #0047AB;
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
 }
 
 /* Responsive Design */

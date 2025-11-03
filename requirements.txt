@@ -1,8 +1,7 @@
-flask==2.2.5
-flask-cors
-networkx
+semanticscholar==0.8.2
+requests==2.31.0
+Flask==2.3.0
+flask-cors==4.0.0
+networkx==3.1
 numpy
-requests
-beautifulsoup4
-Werkzeug==2.2.3
-gunicorn 
+beautifulsoup4==4.12.0
