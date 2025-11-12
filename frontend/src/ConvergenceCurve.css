@@ -1,0 +1,106 @@
+.convergence-curve-container {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin: 32px 0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e8f0fe;
+}
+
+.convergence-header {
+  margin-bottom: 24px;
+}
+
+.convergence-header h3 {
+  color: #0047AB;
+  font-size: 1.8em;
+  margin: 0 0 8px 0;
+  font-weight: 700;
+}
+
+.convergence-header p {
+  color: #666;
+  font-size: 1.05em;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.chart-wrapper {
+  height: 450px;
+  margin: 24px 0;
+  padding: 20px;
+  background: #fafbff;
+  border-radius: 12px;
+  border: 2px solid #e8f0fe;
+}
+
+.convergence-insights {
+  margin-top: 32px;
+  padding: 24px;
+  background: linear-gradient(135deg, #f5f9ff 0%, #e8f0fe 100%);
+  border-radius: 12px;
+  border-left: 6px solid #0047AB;
+}
+
+.convergence-insights h4 {
+  color: #0047AB;
+  font-size: 1.3em;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+}
+
+.convergence-insights ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+}
+
+.convergence-insights li {
+  padding: 10px 0;
+  color: #333;
+  font-size: 1.05em;
+  line-height: 1.6;
+  border-bottom: 1px solid rgba(0, 71, 171, 0.1);
+}
+
+.convergence-insights li:last-child {
+  border-bottom: none;
+}
+
+.convergence-explanation {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.convergence-explanation strong {
+  display: block;
+  color: #0047AB;
+  font-size: 1.15em;
+  margin-bottom: 10px;
+}
+
+.convergence-explanation p {
+  color: #555;
+  font-size: 1em;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .convergence-curve-container {
+    padding: 20px;
+  }
+
+  .chart-wrapper {
+    height: 350px;
+    padding: 15px;
+  }
+
+  .convergence-insights {
+    padding: 16px;
+  }
+}

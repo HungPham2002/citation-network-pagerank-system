@@ -135,7 +135,7 @@ const NetworkMetrics = ({ metrics, results }) => {
   return (
     <div className="network-metrics-container">
       <div className="metrics-header">
-        <h3>🔢 Citation Network Metrics Panel</h3>
+        <h3>Citation Network Metrics Panel</h3>
         <p className="metrics-description">
           💡 Comprehensive analysis of citation network structure, connectivity, and paper importance
         </p>

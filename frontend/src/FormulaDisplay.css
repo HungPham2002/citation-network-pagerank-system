@@ -1,0 +1,152 @@
+.formula-display-container {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin: 24px 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 2px solid #e8f0fe;
+  border-top-width: 6px;
+}
+
+.formula-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.formula-icon {
+  font-size: 2.5em;
+}
+
+.formula-header h3 {
+  font-size: 1.8em;
+  margin: 0;
+  font-weight: 700;
+}
+
+.main-formula-box {
+  padding: 24px;
+  border-radius: 12px;
+  border-left: 6px solid;
+  margin: 24px 0;
+}
+
+.formula-label {
+  font-weight: 700;
+  color: #0047AB;
+  font-size: 1.1em;
+  margin-bottom: 12px;
+}
+
+.formula-text {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 1.4em;
+  color: #333;
+  font-weight: 600;
+  line-height: 1.8;
+  word-wrap: break-word;
+}
+
+.formula-explanation {
+  margin: 32px 0;
+}
+
+.formula-explanation h4 {
+  color: #0047AB;
+  font-size: 1.4em;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+}
+
+.symbol-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.symbol-table tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.symbol-table tr:last-child {
+  border-bottom: none;
+}
+
+.symbol-cell {
+  padding: 14px 20px 14px 0;
+  width: 200px;
+  vertical-align: top;
+}
+
+.symbol-cell code {
+  background: #e8f0fe;
+  color: #0047AB;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 1.1em;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  display: inline-block;
+}
+
+.meaning-cell {
+  padding: 14px 0;
+  color: #555;
+  font-size: 1.05em;
+  line-height: 1.6;
+}
+
+.iterative-process {
+  margin-top: 32px;
+  padding: 24px;
+  background: linear-gradient(135deg, #f5f9ff 0%, #e8f0fe 100%);
+  border-radius: 12px;
+  border-left: 6px solid #0047AB;
+}
+
+.iterative-process h4 {
+  color: #0047AB;
+  font-size: 1.4em;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+}
+
+.process-list {
+  margin: 0;
+  padding-left: 24px;
+  color: #333;
+}
+
+.process-list li {
+  margin: 12px 0;
+  font-size: 1.05em;
+  line-height: 1.8;
+  font-weight: 500;
+}
+
+.process-list .arrow {
+  color: #0047AB;
+  font-weight: bold;
+  margin: 0 6px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .formula-display-container {
+    padding: 20px;
+  }
+
+  .formula-text {
+    font-size: 1.1em;
+  }
+
+  .symbol-cell {
+    width: 150px;
+  }
+
+  .symbol-cell code {
+    font-size: 0.95em;
+  }
+}

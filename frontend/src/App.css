@@ -469,3 +469,49 @@ tr:last-child td {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(135deg, #003d82 0%, #0047AB 100%);
 }
+
+/* Role Badge in Header */
+.hcmus-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.hcmus-header-content > div:first-of-type {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .hcmus-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Formula Toggle Button */
+.btn-toggle-formula {
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  font-size: 1.1em;
+  font-weight: 700;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-toggle-formula:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.btn-toggle-formula:active {
+  transform: translateY(0);
+}

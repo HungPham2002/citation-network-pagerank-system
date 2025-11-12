@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import logo from './logo.webp';
 import { Bar } from 'react-chartjs-2';
 import ReactMarkdown from 'react-markdown';
 import NetworkGraph from './NetworkGraph';
 import NetworkMetrics from './NetworkMetrics';
+import RoleModal from './RoleModal';
+import RoleBadge from './RoleBadge';
+import ExportDataButton from './ExportDataButton';
+import AlgorithmSelector from './AlgorithmSelector';
+import ComparisonView from './ComparisonView';
+import FormulaDisplay from './FormulaDisplay';
 
 import { 
   Chart as ChartJS, 
@@ -112,12 +118,11 @@ The authors would like to express their sincere gratitude to BSc. Le Nho Han and
 `;
 
 function App() {
-  const [inputMode, setInputMode] = useState('authors'); // 'authors' or 'papers'
-  const [paperInputType, setPaperInputType] = useState('doi'); // 'doi' or 'title'
+  // ===== BASIC STATES =====
+  const [inputMode, setInputMode] = useState('authors');
+  const [paperInputType, setPaperInputType] = useState('doi');
   const [authors, setAuthors] = useState('');
   const [papers, setPapers] = useState('');
-  const [dampingFactor, setDampingFactor] = useState(0.85);
-  const [maxIterations, setMaxIterations] = useState(100);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -126,22 +131,75 @@ function App() {
   const [networkData, setNetworkData] = useState(null);
   const [stats, setStats] = useState(null);
   const [networkMetrics, setNetworkMetrics] = useState(null);
+  
+  // ===== ROLE STATES =====
+  const [userRole, setUserRole] = useState(null);
+  const [permissions, setPermissions] = useState(null);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+
+  // ===== ALGORITHM COMPARISON STATES =====
+  const [selectedAlgorithms, setSelectedAlgorithms] = useState(['pagerank']);
+  const [algorithmParameters, setAlgorithmParameters] = useState({
+    damping_factor: 0.85,
+    max_iterations: 100
+  });
+  const [comparisonResults, setComparisonResults] = useState(null);
+  const [singleAlgorithmResult, setSingleAlgorithmResult] = useState(null);
+  const [showFormulaExplanation, setShowFormulaExplanation] = useState(false);
+
+  // ===== EFFECTS =====
+  useEffect(() => {
+    const savedRole = localStorage.getItem('userRole');
+    console.log('🔍 Checking saved role:', savedRole);
+    if (savedRole) {
+      setUserRole(savedRole);
+      console.log('✅ Role loaded from localStorage:', savedRole);
+    } else {
+      console.log('❌ No role found, opening modal...');
+      setIsRoleModalOpen(true);
+    }
+  }, []);
+
+  // ===== HANDLER FUNCTIONS =====
+  const handleSelectRole = (role) => {
+    console.log('✅ Role selected:', role);
+    setUserRole(role);
+    localStorage.setItem('userRole', role);
+    setIsRoleModalOpen(false);
+  };
+
+  const handleChangeRole = () => {
+    console.log('🔄 Opening role modal to change...');
+    setIsRoleModalOpen(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
+    setResults([]);
+    setComparisonResults(null);
+    setSingleAlgorithmResult(null);
     
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
     try {
+      // Kiểm tra nếu user chưa chọn role
+      if (!userRole) {
+        setError('Please select your role first');
+        setLoading(false);
+        return;
+      }
+
       let endpoint = '';
       let requestBody = {
-        damping_factor: dampingFactor,
-        max_iterations: maxIterations
+        damping_factor: algorithmParameters.damping_factor,
+        max_iterations: algorithmParameters.max_iterations,
+        user_role: userRole
       };
 
+      // Xác định input mode
       if (inputMode === 'authors') {
         const authorList = authors.split('\n')
           .map(author => author.trim())
@@ -153,8 +211,8 @@ function App() {
           return;
         }
         
-        endpoint = '/api/calculate-citation-pagerank';
         requestBody.authors = authorList;
+        requestBody.input_mode = 'authors';
       } else {
         const paperList = papers.split('\n')
           .map(paper => paper.trim())
@@ -166,48 +224,110 @@ function App() {
           return;
         }
         
-        endpoint = '/api/calculate-citation-pagerank-by-papers';
         requestBody.papers = paperList;
-        requestBody.input_type = paperInputType; // THÊM dòng này
+        requestBody.input_type = paperInputType;
+        requestBody.input_mode = 'papers';
       }
-      
-      const response = await fetch(`${apiUrl}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setResults(data.results);
-        setNetworkData(data.network);
-        setStats(data.stats);
-        setNetworkMetrics(data.networkMetrics);
+
+      // LOGIC: Comparison mode hoặc Single algorithm
+      if (selectedAlgorithms.length > 1) {
+        // ===== COMPARISON MODE =====
+        endpoint = '/api/compare-algorithms';
+        requestBody.algorithms = selectedAlgorithms;
         
-        if (inputMode === 'authors') {
-          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers from ${requestBody.authors.length} authors`);
+        console.log('🔄 Comparing algorithms:', selectedAlgorithms);
+        
+        const response = await fetch(`${apiUrl}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          setComparisonResults(data);
+          setNetworkData(data.network);
+          setStats(data.stats);
+          setNetworkMetrics(data.networkMetrics);
+          setPermissions({ export_data: true, view_network_metrics: true }); // DS permissions
+          setSuccess(`✅ Successfully compared ${selectedAlgorithms.length} algorithms on ${data.stats.totalPapers} papers`);
         } else {
-          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers from citation network`);
+          setError(data.error || 'An error occurred while comparing algorithms');
         }
+        
       } else {
-        setError(data.error || 'An error occurred while analyzing citations');
+        // ===== SINGLE ALGORITHM MODE =====
+        endpoint = '/api/calculate-with-algorithm';
+        requestBody.algorithm = selectedAlgorithms[0];
+        
+        console.log('🔄 Calculating with algorithm:', selectedAlgorithms[0]);
+        
+        const response = await fetch(`${apiUrl}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          setSingleAlgorithmResult(data);
+          setNetworkData(data.network);
+          setStats(data.stats);
+          
+          if (data.networkMetrics) {
+            setNetworkMetrics(data.networkMetrics);
+          }
+          
+          // Extract results based on algorithm
+          if (data.algorithm === 'hits') {
+            setResults(data.authority_results);
+          } else {
+            setResults(data.results);
+          }
+          
+          setPermissions({ export_data: true, view_network_metrics: true });
+          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers using ${data.algorithm.toUpperCase()}`);
+        } else {
+          setError(data.error || 'An error occurred while analyzing');
+        }
       }
+      
     } catch (err) {
-      setError('Failed to connect to the server. Please make sure the backend is running on port 5000. Error: ' + err.message);
+      setError('Failed to connect to the server. Please make sure the backend is running. Error: ' + err.message);
+      console.error('Request error:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // ===== CHART DATA =====
+  const getScoreKey = () => {
+    if (!selectedAlgorithms || selectedAlgorithms.length === 0) return 'pagerank';
+    if (selectedAlgorithms[0] === 'pagerank') return 'pagerank';
+    if (selectedAlgorithms[0] === 'weighted_pagerank') return 'weighted_pagerank';
+    if (selectedAlgorithms[0] === 'hits') return 'authority_score';
+    return 'pagerank';
+  };
+
+  const getChartTitle = () => {
+    if (selectedAlgorithms[0] === 'pagerank') return 'PageRank Score Visualization';
+    if (selectedAlgorithms[0] === 'weighted_pagerank') return 'Weighted PageRank Score Visualization';
+    if (selectedAlgorithms[0] === 'hits') return 'HITS Authority Score Visualization';
+    return 'Score Visualization';
   };
 
   const chartData = {
     labels: results.map(r => r.title.length > 40 ? r.title.substring(0, 40) + '...' : r.title),
     datasets: [
       {
-        label: 'PageRank Score',
-        data: results.map(r => r.pagerank),
+        label: (selectedAlgorithms[0]?.replace(/_/g, ' ').toUpperCase() || 'PageRank') + ' Score',
+        data: results.map(r => r[getScoreKey()] || 0),
         backgroundColor: 'rgba(0, 71, 171, 0.8)',
         borderColor: '#0047AB',
         borderWidth: 2,
@@ -243,7 +363,7 @@ function App() {
         },
         callbacks: {
           label: function(context) {
-            return 'PageRank: ' + context.parsed.y.toFixed(6);
+            return 'Score: ' + context.parsed.y.toFixed(6);
           }
         }
       }
@@ -296,8 +416,12 @@ function App() {
             <h1 className="hcmus-title">Citation Network PageRank System</h1>
             <div className="hcmus-subtitle">Ho Chi Minh City University of Technology (HCMUT) - VNUHCM</div>
           </div>
+          {userRole && (
+            <RoleBadge role={userRole} onChangeRole={handleChangeRole} />
+          )}
         </div>
       </header>
+      
       <nav className="hcmus-navbar">
         <ul>
           <li className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}> 🏠︎ Home</li>
@@ -305,6 +429,7 @@ function App() {
           <li><a href="mailto:contact@hcmut.edu.vn" style={{ color: 'inherit', textDecoration: 'none' }}> ✉ Contact</a></li>
         </ul>
       </nav>
+      
       <main className="App-main hcmus-main">
         {page === 'about' ? (
           <div className="input-section" style={{ maxWidth: 1000, margin: '0 auto', background: '#fafbff' }}>
@@ -312,6 +437,34 @@ function App() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
+            {/* ALGORITHM SELECTOR CHO DATA SCIENTIST */}
+            {userRole === 'data_scientist' && (
+              <>
+                <AlgorithmSelector 
+                  onAlgorithmChange={setSelectedAlgorithms}
+                  onParametersChange={setAlgorithmParameters}
+                  selectedAlgorithms={selectedAlgorithms}
+                  parameters={algorithmParameters}
+                />
+                
+                {/* Formula Explanation Toggle */}
+                <div style={{ textAlign: 'center', margin: '20px 0' }}>
+                  <button
+                    type="button"
+                    className="btn-toggle-formula"
+                    onClick={() => setShowFormulaExplanation(!showFormulaExplanation)}
+                  >
+                    {showFormulaExplanation ? 'Hide' : 'Show'} Algorithm Formulas & Explanation
+                  </button>
+                </div>
+
+                {/* Formula Display */}
+                {showFormulaExplanation && selectedAlgorithms.map(algo => (
+                  <FormulaDisplay key={algo} algorithm={algo} />
+                ))}
+              </>
+            )}
+
             <div className="input-section">
               <h2>🎓 Citation Network Analysis</h2>
               <p style={{ marginBottom: '20px', color: '#555', fontSize: '1.05em', lineHeight: '1.6' }}>
@@ -448,55 +601,75 @@ function App() {
                 </>
               )}
 
-              <div style={{ marginTop: '28px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1', minWidth: '200px' }}>
-                  <label htmlFor="damping">⚙️ Damping Factor (α):</label>
-                  <input
-                    id="damping"
-                    type="number"
-                    min="0.1"
-                    max="0.99"
-                    step="0.01"
-                    value={dampingFactor}
-                    onChange={(e) => setDampingFactor(parseFloat(e.target.value))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '2px solid #e8f0fe', 
-                      borderRadius: '8px',
-                      marginTop: '8px'
-                    }}
-                  />
-                  <small style={{ display: 'block', color: '#666', marginTop: '6px' }}>
-                    📌 Default: 0.85 (Google's standard)
+              {/* Advanced Parameters - CHỈ cho Data Scientist */}
+              {userRole === 'data_scientist' && (
+                <div style={{ marginTop: '28px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <label htmlFor="damping">⚙️ Damping Factor (α):</label>
+                    <input
+                      id="damping"
+                      type="number"
+                      min="0.1"
+                      max="0.99"
+                      step="0.01"
+                      value={algorithmParameters.damping_factor}
+                      onChange={(e) => setAlgorithmParameters({
+                        ...algorithmParameters,
+                        damping_factor: parseFloat(e.target.value)
+                      })}
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px', 
+                        border: '2px solid #e8f0fe', 
+                        borderRadius: '8px',
+                        marginTop: '8px'
+                      }}
+                    />
+                    <small style={{ display: 'block', color: '#666', marginTop: '6px' }}>
+                      📌 Default: 0.85 (Google's standard)
+                    </small>
+                  </div>
+                  
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <label htmlFor="iterations">🔄 Max Iterations:</label>
+                    <input
+                      id="iterations"
+                      type="number"
+                      min="10"
+                      max="1000"
+                      value={algorithmParameters.max_iterations}
+                      onChange={(e) => setAlgorithmParameters({
+                        ...algorithmParameters,
+                        max_iterations: parseInt(e.target.value)
+                      })}
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px', 
+                        border: '2px solid #e8f0fe', 
+                        borderRadius: '8px',
+                        marginTop: '8px'
+                      }}
+                    />
+                    <small style={{ display: 'block', color: '#666', marginTop: '6px' }}>
+                      📌 Default: 100
+                    </small>
+                  </div>
+                </div>
+              )}
+
+              {/* Info cho Researcher */}
+              {userRole === 'researcher' && (
+                <div style={{ marginTop: '20px', fontSize: '14px', color: '#555', textAlign: 'left', background: '#f0f7ff', padding: '14px', borderRadius: '8px', borderLeft: '4px solid #0047AB' }}>
+                  ℹ️ <strong>Using default parameters:</strong> Damping Factor = 0.85, Max Iterations = 100
+                  <br />
+                  <small style={{ color: '#666', marginTop: '4px', display: 'block' }}>
+                    (Advanced users can switch to Data Scientist role to customize these values)
                   </small>
                 </div>
-                
-                <div style={{ flex: '1', minWidth: '200px' }}>
-                  <label htmlFor="iterations">🔄 Max Iterations:</label>
-                  <input
-                    id="iterations"
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={maxIterations}
-                    onChange={(e) => setMaxIterations(parseInt(e.target.value))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '2px solid #e8f0fe', 
-                      borderRadius: '8px',
-                      marginTop: '8px'
-                    }}
-                  />
-                  <small style={{ display: 'block', color: '#666', marginTop: '6px' }}>
-                    📌 Default: 100
-                  </small>
-                </div>
-              </div>
+              )}
 
               <p style={{ marginTop: '20px', fontSize: '15px', color: '#555', textAlign: 'left', background: '#f5f9ff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #0047AB' }}>
-                💡 <strong>How it works:</strong> The system fetches papers from Semantic Scholar, builds a citation network, and applies PageRank to identify the most influential research based on citation patterns.
+                💡 <strong>How it works:</strong> The system fetches papers from Semantic Scholar, builds a citation network, and applies algorithms to identify the most influential research based on citation patterns.
               </p>
             </div>
             
@@ -516,17 +689,64 @@ function App() {
         {error && <div className="error">❌ {error}</div>}
         {success && <div className="success">{success}</div>}
 
-        {results.length > 0 && (
+        {/* COMPARISON RESULTS */}
+        {comparisonResults && (
           <>
+            <ComparisonView 
+              comparisonData={comparisonResults}
+              algorithms={selectedAlgorithms}
+            />
+
+            {/* Network Graph */}
+            {networkData && (
+              <NetworkGraph 
+                results={comparisonResults.algorithms[selectedAlgorithms[0]]?.results || comparisonResults.algorithms[selectedAlgorithms[0]]?.authority_results || []}
+                adjacencyMatrix={networkData.edges}
+                urls={(comparisonResults.algorithms[selectedAlgorithms[0]]?.results || comparisonResults.algorithms[selectedAlgorithms[0]]?.authority_results || []).map(r => r.title.substring(0, 50))}
+              />
+            )}
+          </>
+        )}
+
+        {/* SINGLE ALGORITHM RESULTS */}
+        {singleAlgorithmResult && results.length > 0 && (
+          <>
+            {/* Export Button cho DS */}
+            {permissions && permissions.export_data && (
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <ExportDataButton 
+                  results={results}
+                  network={networkData}
+                  stats={stats}
+                  networkMetrics={networkMetrics}
+                  inputMode={inputMode}
+                  parameters={algorithmParameters}
+                  userRole={userRole}
+                />
+              </div>
+            )}
+
             <div className="results">
-              <h2>Top Influential Papers</h2>
+              <h2>
+                Top Influential Papers - {' '}
+                {selectedAlgorithms[0] === 'pagerank' && 'PageRank'}
+                {selectedAlgorithms[0] === 'weighted_pagerank' && 'Weighted PageRank'}
+                {selectedAlgorithms[0] === 'hits' && 'HITS'}
+              </h2>
               {stats && (
                 <p style={{ marginBottom: '24px', color: '#555', textAlign: 'left', background: '#f5f9ff', padding: '16px', borderRadius: '8px' }}>
                   Analyzed <strong>{stats.totalPapers}</strong> papers with <strong>{stats.totalCitations}</strong> citation relationships.
                   <br />
-                  <strong>Parameters used:</strong> Damping Factor (α) = {dampingFactor}, Max Iterations = {maxIterations}
+                  <strong>Algorithm:</strong> {selectedAlgorithms[0].replace(/_/g, ' ').toUpperCase()}
+                  <br />
+                  <strong>Parameters:</strong> Damping Factor = {algorithmParameters.damping_factor}, Max Iterations = {algorithmParameters.max_iterations}
+                  <br />
+                  <strong>Performance:</strong> Computation Time = {singleAlgorithmResult.performance?.computation_time}s, 
+                  Iterations = {singleAlgorithmResult.performance?.iterations}
                 </p>
               )}
+
+              {/* Results Table */}
               <table>
                 <thead>
                   <tr>
@@ -535,12 +755,26 @@ function App() {
                     <th>Authors</th>
                     <th>Year</th>
                     <th>Citations</th>
-                    <th>PageRank</th>
+                    <th>
+                      {selectedAlgorithms[0] === 'pagerank' && 'PageRank'}
+                      {selectedAlgorithms[0] === 'weighted_pagerank' && 'Weighted PR'}
+                      {selectedAlgorithms[0] === 'hits' && 'Authority Score'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((result, index) => {
                     const medalEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+                    
+                    let score;
+                    if (selectedAlgorithms[0] === 'pagerank') {
+                      score = result.pagerank;
+                    } else if (selectedAlgorithms[0] === 'weighted_pagerank') {
+                      score = result.weighted_pagerank;
+                    } else if (selectedAlgorithms[0] === 'hits') {
+                      score = result.authority_score;
+                    }
+
                     return (
                       <tr key={result.paperId}>
                         <td>
@@ -567,7 +801,7 @@ function App() {
                           <span style={{ color: '#2e7d32', fontWeight: '700' }}>{result.citationCount || 0}</span>
                         </td>
                         <td>
-                          <strong style={{ color: '#0047AB', fontSize: '1.05em' }}>{result.pagerank.toFixed(6)}</strong>
+                          <strong style={{ color: '#0047AB', fontSize: '1.05em' }}>{score?.toFixed(6)}</strong>
                         </td>
                       </tr>
                     );
@@ -576,46 +810,26 @@ function App() {
               </table>
             </div>
 
+            {/* Network Graph */}
             {networkData && (
-              
-                <NetworkGraph 
-                  results={results} 
-                  adjacencyMatrix={networkData.edges}
-                  urls={results.map(r => r.title.substring(0, 50))}
-                />
-              
+              <NetworkGraph 
+                results={results} 
+                adjacencyMatrix={networkData.edges}
+                urls={results.map(r => r.title.substring(0, 50))}
+              />
             )}
 
-            {stats && results.length > 0 && (
+            {/* Network Metrics - CHỈ cho Data Scientist */}
+            {permissions && permissions.view_network_metrics && networkMetrics && (
               <NetworkMetrics 
-                metrics={{
-                  total_nodes: stats.totalPapers,
-                  total_edges: stats.totalCitations,
-                  density: stats.totalCitations / (stats.totalPapers * (stats.totalPapers - 1)),
-                  avg_clustering_coefficient: 0.5, // Placeholder - backend cần tính
-                  avg_in_degree: stats.totalCitations / stats.totalPapers,
-                  avg_out_degree: stats.totalCitations / stats.totalPapers,
-                  in_degree: results.map(r => r.citationCount || 0),
-                  out_degree: results.map(r => 0), // Placeholder
-                  strongly_connected_nodes: Math.floor(stats.totalPapers * 0.7),
-                  dangling_nodes: Math.floor(stats.totalPapers * 0.1),
-                  isolated_nodes: 0,
-                  hubs: [],
-                  authorities: results.slice(0, 5).map((r, idx) => ({
-                    url: r.title,
-                    in_degree: r.citationCount || 0,
-                    score: (idx + 1) / 5
-                  })),
-                  hub_scores: results.slice(0, 5).map((r, idx) => 0.8 - (idx * 0.15)),
-                  authority_scores: results.slice(0, 5).map((r, idx) => 0.9 - (idx * 0.15)),
-                  degree_distribution: {}
-                }}
+                metrics={networkMetrics}
                 results={results}
               />
             )}
 
+            {/* Score Visualization Chart */}
             <div className="chart-container">
-              <h3>PageRank Score Visualization</h3>
+              <h3>{getChartTitle()}</h3>
               <div style={{ height: '450px', marginTop: '20px' }}>
                 <Bar data={chartData} options={chartOptions} />
               </div>
@@ -623,6 +837,7 @@ function App() {
           </>
         )}
       </main>
+      
       <footer className="hcmus-footer">
         <div style={{ marginBottom: '8px', fontSize: '1.05em', fontWeight: '600' }}>
           © {new Date().getFullYear()} Ho Chi Minh City University of Technology (HCMUT) | Citation Network PageRank System
@@ -632,6 +847,14 @@ function App() {
           Website: <a href="https://www.hcmut.edu.vn" target="_blank" rel="noopener noreferrer">www.hcmut.edu.vn</a>
         </div>
       </footer>
+      
+      {/* Role Selection Modal */}
+      <RoleModal 
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
+        onSelectRole={handleSelectRole}
+        currentRole={userRole}
+      />
     </div>
   );
 }

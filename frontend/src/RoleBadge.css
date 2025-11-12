@@ -1,0 +1,76 @@
+.role-badge-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border: 2px solid;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.95em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.role-icon {
+  font-size: 1.2em;
+}
+
+.role-name {
+  color: #333;
+}
+
+.btn-change-role {
+  background: transparent;
+  border: 2px solid white;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 25px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-change-role:hover {
+  background: white;
+  color: #0047AB;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+.btn-change-role:active {
+  transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .role-badge-container {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .btn-change-role {
+    font-size: 0.85em;
+    padding: 6px 12px;
+  }
+}
