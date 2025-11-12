@@ -3,3 +3,4 @@
 - Fix lỗi không hiển thị Interactive Graph Visualization khi chạy mode multi algorithm khi có 1 trong 2 thuật toán đã nêu
 - Fix lỗi giao diện bị overlap khi so sánh Performance metric.
 - Add Convergence Curve vào output DS role
+- State không được reset khi switch role
