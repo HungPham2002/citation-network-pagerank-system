@@ -185,7 +185,6 @@ function App() {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
     try {
-      // Kiểm tra nếu user chưa chọn role
       if (!userRole) {
         setError('Please select your role first');
         setLoading(false);
@@ -196,7 +195,7 @@ function App() {
       let requestBody = {
         damping_factor: algorithmParameters.damping_factor,
         max_iterations: algorithmParameters.max_iterations,
-        user_role: userRole
+        user_role: userRole  // ✅ Gửi user role
       };
 
       // Xác định input mode
@@ -231,17 +230,12 @@ function App() {
 
       // LOGIC: Comparison mode hoặc Single algorithm
       if (selectedAlgorithms.length > 1) {
-        // ===== COMPARISON MODE =====
         endpoint = '/api/compare-algorithms';
         requestBody.algorithms = selectedAlgorithms;
         
-        console.log('🔄 Comparing algorithms:', selectedAlgorithms);
-        
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
         
@@ -251,25 +245,29 @@ function App() {
           setComparisonResults(data);
           setNetworkData(data.network);
           setStats(data.stats);
-          setNetworkMetrics(data.networkMetrics);
-          setPermissions({ export_data: true, view_network_metrics: true }); // DS permissions
-          setSuccess(`✅ Successfully compared ${selectedAlgorithms.length} algorithms on ${data.stats.totalPapers} papers`);
+          
+          // ✅ CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
+          if (data.networkMetrics) {
+            setNetworkMetrics(data.networkMetrics);
+          } else {
+            setNetworkMetrics(null);  // ✅ Clear metrics nếu không có quyền
+          }
+          
+          // ✅ LẤY PERMISSIONS TỪ BACKEND
+          setPermissions(data.permissions);
+          setSuccess(`✅ Successfully compared ${selectedAlgorithms.length} algorithms`);
         } else {
-          setError(data.error || 'An error occurred while comparing algorithms');
+          setError(data.error || 'An error occurred');
         }
         
       } else {
-        // ===== SINGLE ALGORITHM MODE =====
+        // SINGLE ALGORITHM MODE
         endpoint = '/api/calculate-with-algorithm';
         requestBody.algorithm = selectedAlgorithms[0];
         
-        console.log('🔄 Calculating with algorithm:', selectedAlgorithms[0]);
-        
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
         
@@ -280,26 +278,30 @@ function App() {
           setNetworkData(data.network);
           setStats(data.stats);
           
+          // ✅ CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
           if (data.networkMetrics) {
             setNetworkMetrics(data.networkMetrics);
+          } else {
+            setNetworkMetrics(null);  // ✅ Clear metrics
           }
           
-          // Extract results based on algorithm
+          // Extract results
           if (data.algorithm === 'hits') {
             setResults(data.authority_results);
           } else {
             setResults(data.results);
           }
           
-          setPermissions({ export_data: true, view_network_metrics: true });
-          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers using ${data.algorithm.toUpperCase()}`);
+          // ✅ LẤY PERMISSIONS TỪ BACKEND
+          setPermissions(data.permissions);
+          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers`);
         } else {
-          setError(data.error || 'An error occurred while analyzing');
+          setError(data.error || 'An error occurred');
         }
       }
       
     } catch (err) {
-      setError('Failed to connect to the server. Please make sure the backend is running. Error: ' + err.message);
+      setError('Failed to connect to server: ' + err.message);
       console.error('Request error:', err);
     } finally {
       setLoading(false);

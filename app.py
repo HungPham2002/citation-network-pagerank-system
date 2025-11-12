@@ -693,19 +693,18 @@ def get_roles():
 
 @app.route('/api/calculate-citation-pagerank', methods=['POST'])
 def calculate_citation_pagerank():
-    """API endpoint để tính PageRank cho citation network"""
     try:
         data = request.get_json()
         author_names = data.get('authors', [])
         damping_factor = data.get('damping_factor', 0.85)
         max_iterations = data.get('max_iterations', 100)
-        user_role = data.get('user_role', 'researcher')  # MỚI: Nhận role từ frontend
+        user_role = data.get('user_role', 'researcher')
         
         if not author_names or len(author_names) == 0:
             return jsonify({'error': 'Please provide at least one author name'}), 400
         
         if not sch:
-            return jsonify({'error': 'Semantic Scholar API not available. Please install: pip install semanticscholar'}), 500
+            return jsonify({'error': 'Semantic Scholar API not available'}), 500
         
         logger.info(f"Calculating PageRank for authors: {author_names} (Role: {user_role})")
         
@@ -713,12 +712,12 @@ def calculate_citation_pagerank():
         papers, citation_graph = build_citation_network(author_names)
         
         if len(papers) == 0:
-            return jsonify({'error': 'No papers found for the given authors'}), 404
+            return jsonify({'error': 'No papers found'}), 404
         
         # Calculate PageRank
         results = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
         
-        # Prepare network data for visualization
+        # Prepare network data
         nodes = []
         edges = []
         
@@ -736,12 +735,8 @@ def calculate_citation_pagerank():
                     'to': target_id
                 })
         
-        # MỚI: Kiểm tra permission trước khi trả về metrics
+        # ✅ LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
-        
-        network_metrics = None
-        if permissions['view_network_metrics']:
-            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
         
         response_data = {
             'results': results[:50],
@@ -753,12 +748,13 @@ def calculate_citation_pagerank():
                 'totalPapers': len(papers),
                 'totalCitations': sum(len(targets) for targets in citation_graph.values())
             },
-            'userRole': user_role,  # MỚI: Trả về role
-            'permissions': permissions  # MỚI: Trả về permissions
+            'userRole': user_role,
+            'permissions': permissions  # ✅ Trả về permissions thực tế
         }
         
-        # CHỈ thêm networkMetrics nếu user có quyền
-        if network_metrics:
+        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+        if permissions.get('view_network_metrics', False):
+            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
             response_data['networkMetrics'] = network_metrics
         
         return jsonify(response_data)
@@ -794,14 +790,13 @@ def search_author():
 
 @app.route('/api/calculate-citation-pagerank-by-papers', methods=['POST'])
 def calculate_citation_pagerank_by_papers():
-    """API endpoint để tính PageRank cho citation network từ paper DOIs hoặc titles"""
     try:
         data = request.get_json()
         paper_identifiers = data.get('papers', [])
         input_type = data.get('input_type', 'doi')
         damping_factor = data.get('damping_factor', 0.85)
         max_iterations = data.get('max_iterations', 100)
-        user_role = data.get('user_role', 'researcher')  # MỚI: Nhận role từ frontend
+        user_role = data.get('user_role', 'researcher')
         
         if not paper_identifiers or len(paper_identifiers) == 0:
             return jsonify({'error': f'Please provide at least one paper {input_type}'}), 400
@@ -811,7 +806,6 @@ def calculate_citation_pagerank_by_papers():
         
         logger.info(f"Calculating PageRank for {len(paper_identifiers)} papers by {input_type.upper()} (Role: {user_role})")
         
-        # Build citation network
         papers, citation_graph = build_citation_network_from_papers(
             paper_identifiers, 
             max_citations=MAX_CITATIONS_PER_PAPER,
@@ -819,9 +813,8 @@ def calculate_citation_pagerank_by_papers():
         )
         
         if len(papers) == 0:
-            return jsonify({'error': f'No papers found for the given {input_type}s'}), 404
+            return jsonify({'error': f'No papers found'}), 404
         
-        # Calculate PageRank
         results = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
         
         # Prepare network data
@@ -842,12 +835,8 @@ def calculate_citation_pagerank_by_papers():
                     'to': target_id
                 })
         
-        # MỚI: Kiểm tra permission
+        # ✅ LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
-        
-        network_metrics = None
-        if permissions['view_network_metrics']:
-            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
         
         response_data = {
             'results': results[:50],
@@ -863,7 +852,9 @@ def calculate_citation_pagerank_by_papers():
             'permissions': permissions
         }
         
-        if network_metrics:
+        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+        if permissions.get('view_network_metrics', False):
+            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
             response_data['networkMetrics'] = network_metrics
         
         return jsonify(response_data)
@@ -976,9 +967,6 @@ def export_data():
 
 @app.route('/api/calculate-with-algorithm', methods=['POST'])
 def calculate_with_algorithm():
-    """
-    API endpoint để tính với algorithm cụ thể
-    """
     try:
         data = request.get_json()
         algorithm = data.get('algorithm', 'pagerank')
@@ -1013,60 +1001,68 @@ def calculate_with_algorithm():
         import time
         start_time = time.time()
         
+        # ✅ LẤY PERMISSIONS THỰC TẾ
+        permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
+        
         # Calculate based on algorithm
         if algorithm == 'pagerank':
             results = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
-            iterations = max_iterations  # Placeholder, actual convergence tracking needed
+            iterations = max_iterations
             computation_time = time.time() - start_time
             
-            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
-
             response_data = {
                 'algorithm': 'pagerank',
                 'results': results[:50],
-                'networkMetrics': network_metrics,
                 'performance': {
                     'computation_time': round(computation_time, 3),
                     'iterations': iterations,
                     'papers_analyzed': len(papers)
                 }
             }
+            
+            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            if permissions.get('view_network_metrics', False):
+                network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
+                response_data['networkMetrics'] = network_metrics
             
         elif algorithm == 'hits':
             authority_results, hub_results, iterations = calculate_hits(papers, citation_graph, max_iterations)
             computation_time = time.time() - start_time
             
-            # THÊM: Tính network metrics cho HITS
-            network_metrics = calculate_network_metrics_simple(papers, citation_graph, authority_results)
-            
             response_data = {
                 'algorithm': 'hits',
                 'authority_results': authority_results[:50],
                 'hub_results': hub_results[:50],
-                'networkMetrics': network_metrics,  
                 'performance': {
                     'computation_time': round(computation_time, 3),
                     'iterations': iterations,
                     'papers_analyzed': len(papers)
                 }
             }
+            
+            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            if permissions.get('view_network_metrics', False):
+                network_metrics = calculate_network_metrics_simple(papers, citation_graph, authority_results)
+                response_data['networkMetrics'] = network_metrics
             
         elif algorithm == 'weighted_pagerank':
             results, iterations = calculate_weighted_pagerank(papers, citation_graph, damping_factor, max_iterations)
             computation_time = time.time() - start_time
             
-            network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)  # THÊM
-            
             response_data = {
                 'algorithm': 'weighted_pagerank',
                 'results': results[:50],
-                'networkMetrics': network_metrics,
                 'performance': {
                     'computation_time': round(computation_time, 3),
                     'iterations': iterations,
                     'papers_analyzed': len(papers)
                 }
             }
+            
+            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            if permissions.get('view_network_metrics', False):
+                network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
+                response_data['networkMetrics'] = network_metrics
         else:
             return jsonify({'error': f'Unknown algorithm: {algorithm}'}), 400
         
@@ -1098,6 +1094,10 @@ def calculate_with_algorithm():
             'totalCitations': sum(len(targets) for targets in citation_graph.values())
         }
         
+        # ✅ THÊM PERMISSIONS VÀO RESPONSE
+        response_data['permissions'] = permissions
+        response_data['userRole'] = user_role
+        
         return jsonify(response_data)
         
     except Exception as e:
@@ -1109,9 +1109,6 @@ def calculate_with_algorithm():
 
 @app.route('/api/compare-algorithms', methods=['POST'])
 def compare_algorithms():
-    """
-    API endpoint để so sánh nhiều algorithms
-    """
     try:
         data = request.get_json()
         algorithms = data.get('algorithms', ['pagerank', 'hits'])
@@ -1226,7 +1223,10 @@ def compare_algorithms():
                     'to': target_id
                 })
         
-        return jsonify({
+        # ✅ LẤY PERMISSIONS THỰC TẾ
+        permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
+        
+        response_data = {
             'algorithms': comparison_results,
             'correlations': correlations,
             'overlaps': overlaps,
@@ -1237,8 +1237,22 @@ def compare_algorithms():
             'stats': {
                 'totalPapers': len(papers),
                 'totalCitations': sum(len(targets) for targets in citation_graph.values())
-            }
-        })
+            },
+            'permissions': permissions,  # ✅ THÊM
+            'userRole': user_role  # ✅ THÊM
+        }
+        
+        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN (cho comparison mode)
+        if permissions.get('view_network_metrics', False):
+            # Lấy results đầu tiên để tính metrics
+            first_algo = algorithms[0]
+            if first_algo in comparison_results:
+                first_results = comparison_results[first_algo].get('results') or comparison_results[first_algo].get('authority_results')
+                if first_results:
+                    network_metrics = calculate_network_metrics_simple(papers, citation_graph, first_results)
+                    response_data['networkMetrics'] = network_metrics
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Error in compare_algorithms: {str(e)}")
