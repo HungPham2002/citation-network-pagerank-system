@@ -10,9 +10,9 @@ function ComparisonView({ comparisonData, algorithms }) {
   }
 
   const algorithmInfo = {
-    pagerank: { name: 'PageRank', color: '#0047AB', icon: '🔵', scoreKey: 'pagerank' },
-    weighted_pagerank: { name: 'Weighted PageRank', color: '#FF6B35', icon: '⚖️', scoreKey: 'weighted_pagerank' },
-    hits: { name: 'HITS Authority', color: '#4CAF50', icon: '🎯', scoreKey: 'authority_score' }
+    pagerank: { name: 'PageRank', color: '#0047AB', scoreKey: 'pagerank' },
+    weighted_pagerank: { name: 'Weighted PageRank', color: '#FF6B35', scoreKey: 'weighted_pagerank' },
+    hits: { name: 'HITS Authority', color: '#4CAF50', scoreKey: 'authority_score' }
   };
 
   // Prepare data for side-by-side comparison
@@ -141,26 +141,26 @@ function ComparisonView({ comparisonData, algorithms }) {
   return (
     <div className="comparison-view-container">
       <div className="comparison-header">
-        <h2>📊 Algorithm Comparison Results</h2>
+        <h2>Algorithm Comparison Results</h2>
         <div className="comparison-tabs">
           <button
             className={`tab-btn ${activeTab === 'side-by-side' ? 'active' : ''}`}
             onClick={() => setActiveTab('side-by-side')}
           >
-            📋 Side-by-Side
+            Side-by-Side
           </button>
           <button
             className={`tab-btn ${activeTab === 'metrics' ? 'active' : ''}`}
             onClick={() => setActiveTab('metrics')}
           >
-            📈 Performance Metrics
+            Performance Metrics
           </button>
           {algorithms.length >= 2 && (
             <button
               className={`tab-btn ${activeTab === 'correlation' ? 'active' : ''}`}
               onClick={() => setActiveTab('correlation')}
             >
-              🔗 Correlation Analysis
+              Correlation Analysis
             </button>
           )}
         </div>
@@ -225,46 +225,51 @@ function ComparisonView({ comparisonData, algorithms }) {
 
       {/* Performance Metrics */}
       {activeTab === 'metrics' && (
-        <div className="metrics-grid">
-          {algorithms.map(algoId => {
-            const algoData = comparisonData.algorithms[algoId];
-            const info = algorithmInfo[algoId];
-            
-            return (
-              <div key={algoId} className="metric-card" style={{ borderTop: `6px solid ${info.color}` }}>
-                <h3>
-                  <span className="algo-icon">{info.icon}</span>
-                  {info.name}
-                </h3>
-                
-                <div className="metric-row">
-                  <span className="metric-label">⏱️ Computation Time:</span>
-                  <span className="metric-value">{algoData.performance.computation_time}s</span>
-                </div>
-                
-                <div className="metric-row">
-                  <span className="metric-label">🔄 Iterations:</span>
-                  <span className="metric-value">{algoData.performance.iterations}</span>
-                </div>
-                
-                <div className="metric-row">
-                  <span className="metric-label">📄 Papers Analyzed:</span>
-                  <span className="metric-value">{algoData.performance.papers_analyzed}</span>
-                </div>
-
-                {algoId === 'hits' && (
-                  <div className="metric-note">
-                    <small>💡 HITS produces both Authority and Hub scores</small>
+        <>
+          {/* FIX: Separated metrics grid from statistical section */}
+          <div className="metrics-grid">
+            {algorithms.map(algoId => {
+              const algoData = comparisonData.algorithms[algoId];
+              const info = algorithmInfo[algoId];
+              
+              return (
+                <div key={algoId} className="metric-card" style={{ borderTop: `6px solid ${info.color}` }}>
+                  <div className="metric-card-header">
+                    <span className="algo-icon">{info.icon}</span>
+                    <h3>{info.name}</h3>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                  
+                  <div className="metric-content">
+                    <div className="metric-row">
+                      <span className="metric-label">⏱️ Computation Time:</span>
+                      <span className="metric-value">{algoData.performance.computation_time}s</span>
+                    </div>
+                    
+                    <div className="metric-row">
+                      <span className="metric-label">🔄 Iterations:</span>
+                      <span className="metric-value">{algoData.performance.iterations}</span>
+                    </div>
+                    
+                    <div className="metric-row">
+                      <span className="metric-label">📄 Papers Analyzed:</span>
+                      <span className="metric-value">{algoData.performance.papers_analyzed}</span>
+                    </div>
 
-          {/* Correlations & Overlaps */}
+                    {algoId === 'hits' && (
+                      <div className="metric-note">
+                        <small>💡 HITS produces both Authority and Hub scores</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* FIX: Statistical Comparisons - Now completely separate */}
           {comparisonData.correlations && Object.keys(comparisonData.correlations).length > 0 && (
             <div className="correlation-metrics">
-              <h3>🔗 Statistical Comparisons</h3>
+              <h3>Statistical Comparisons</h3>
               
               {Object.entries(comparisonData.correlations).map(([key, value]) => (
                 <div key={key} className="correlation-row">
@@ -288,14 +293,14 @@ function ComparisonView({ comparisonData, algorithms }) {
               {comparisonData.overlaps && Object.entries(comparisonData.overlaps).map(([key, value]) => (
                 <div key={key} className="overlap-row">
                   <span className="overlap-label">
-                    📊 {key.replace(/_/g, ' ').replace(/top10/g, 'Top-10 Overlap')}:
+                    {key.replace(/_/g, ' ').replace(/top10/g, 'Top-10 Overlap')}:
                   </span>
                   <span className="overlap-value">{(value * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Correlation Scatter Plot */}
@@ -306,7 +311,7 @@ function ComparisonView({ comparisonData, algorithms }) {
             <Scatter data={scatterData} options={scatterOptions} />
           </div>
           <div className="correlation-interpretation">
-            <h4>📊 Interpretation:</h4>
+            <h4>Interpretation:</h4>
             <ul>
               <li>Points closer to diagonal line = Higher agreement between algorithms</li>
               <li>Scattered points = Different ranking perspectives</li>

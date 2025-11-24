@@ -146,21 +146,27 @@
   font-style: italic;
 }
 
-/* Performance Metrics Grid */
+/* ✅ FIX: Performance Metrics Grid - Better responsive layout */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  margin-top: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 28px;
+  margin-top: 28px;
+  align-items: start; /* ✅ Prevent cards from stretching */
 }
 
+/* ✅ FIX: Metric Card - Improved structure */
 .metric-card {
   background: white;
   border: 2px solid #e8f0fe;
   border-radius: 12px;
-  padding: 24px;
+  padding: 0; /* ✅ Remove padding, add to inner elements */
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+  overflow: hidden; /* ✅ Prevent overflow */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* ✅ Ensure all cards same height in grid */
 }
 
 .metric-card:hover {
@@ -168,27 +174,46 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
-.metric-card h3 {
+/* ✅ NEW: Metric Card Header - Separate styling */
+.metric-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #0047AB;
-  font-size: 1.3em;
-  margin: 0 0 20px 0;
-  font-weight: 700;
-  padding-bottom: 12px;
+  gap: 12px;
+  padding: 24px 24px 16px 24px;
   border-bottom: 2px solid #f0f0f0;
 }
 
+.metric-card-header .algo-icon {
+  font-size: 2em;
+}
+
+.metric-card-header h3 {
+  color: #0047AB;
+  font-size: 1.3em;
+  margin: 0;
+  font-weight: 700;
+}
+
+/* ✅ NEW: Metric Content wrapper */
+.metric-content {
+  padding: 20px 24px 24px 24px;
+  flex: 1; /* ✅ Take remaining space */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ✅ FIX: Metric Row - Better spacing and wrapping */
 .metric-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start; /* ✅ Align to top for wrapping */
+  padding: 14px 0;
   border-bottom: 1px solid #f5f5f5;
+  gap: 16px; /* ✅ Add gap between label and value */
+  flex-wrap: wrap; /* ✅ Allow wrapping if needed */
 }
 
-.metric-row:last-child {
+.metric-row:last-of-type {
   border-bottom: none;
 }
 
@@ -196,6 +221,8 @@
   color: #666;
   font-weight: 500;
   font-size: 1em;
+  flex: 0 1 auto; /* ✅ Don't grow, shrink if needed */
+  min-width: fit-content; /* ✅ Prevent breaking */
 }
 
 .metric-value {
@@ -205,10 +232,12 @@
   background: #e8f0fe;
   padding: 6px 14px;
   border-radius: 16px;
+  white-space: nowrap; /* ✅ Prevent value wrapping */
+  flex: 0 0 auto; /* ✅ Don't grow or shrink */
 }
 
 .metric-note {
-  margin-top: 16px;
+  margin-top: auto; /* ✅ Push to bottom */
   padding: 12px;
   background: #f5f9ff;
   border-radius: 8px;
@@ -218,15 +247,18 @@
 .metric-note small {
   color: #555;
   line-height: 1.4;
+  display: block;
 }
 
-/* Correlation Metrics */
+/* ✅ FIX: Correlation Metrics - Completely separate from grid */
 .correlation-metrics {
-  grid-column: 1 / -1;
   background: linear-gradient(135deg, #f5f9ff 0%, #e8f0fe 100%);
   border: 2px solid #0047AB;
   border-radius: 12px;
   padding: 28px;
+  margin-top: 40px; /* ✅ Clear separation from cards above */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .correlation-metrics h3 {
@@ -242,18 +274,23 @@
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
+  flex-wrap: wrap; /* ✅ Allow wrapping */
 }
 
 .correlation-label,
 .overlap-label {
-  min-width: 280px;
+  min-width: 200px; /* ✅ Reduced from 280px */
+  max-width: 100%;
   font-weight: 600;
   color: #333;
   font-size: 1em;
+  word-wrap: break-word;
+  flex: 0 0 auto;
 }
 
 .correlation-bar-container {
   flex: 1;
+  min-width: 150px; /* ✅ Minimum width for bar */
   height: 32px;
   background: #e0e0e0;
   border-radius: 16px;
@@ -269,6 +306,7 @@
   padding-right: 12px;
   transition: width 0.5s ease;
   border-radius: 16px;
+  min-width: 60px; /* ✅ Ensure value visible */
 }
 
 .correlation-value {
@@ -286,6 +324,7 @@
   padding: 6px 16px;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
 /* Correlation Chart */
@@ -346,6 +385,12 @@
 }
 
 /* Responsive */
+@media (max-width: 1200px) {
+  .metrics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .comparison-view-container {
     padding: 20px;
@@ -370,11 +415,51 @@
 
   .metrics-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .metric-card-header {
+    padding: 20px 20px 12px 20px;
+  }
+
+  .metric-content {
+    padding: 16px 20px 20px 20px;
+  }
+
+  .correlation-row,
+  .overlap-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .correlation-label,
   .overlap-label {
-    min-width: 150px;
-    font-size: 0.9em;
+    min-width: 100%;
+    font-size: 0.95em;
+  }
+
+  .correlation-bar-container {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .overlap-value {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .metric-card-header .algo-icon {
+    font-size: 1.5em;
+  }
+
+  .metric-card-header h3 {
+    font-size: 1.1em;
+  }
+
+  .metric-label,
+  .metric-value {
+    font-size: 0.95em;
   }
 }

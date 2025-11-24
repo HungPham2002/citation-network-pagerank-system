@@ -16,6 +16,17 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
     const width = 900;
     const height = 600;
 
+    // FIX: Detect score field based on available data
+    const getScoreField = (result) => {
+      if (result.pagerank !== undefined) return 'pagerank';
+      if (result.weighted_pagerank !== undefined) return 'weighted_pagerank';
+      if (result.authority_score !== undefined) return 'authority_score';
+      return 'pagerank'; // fallback
+    };
+
+    const scoreField = getScoreField(results[0]);
+    const getScore = (result) => result[scoreField] || 0;
+
     // Create SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
@@ -33,21 +44,21 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
     
     svg.call(zoom);
 
-    // Prepare data - UPDATED for citation network
+    // FIX: Use dynamic score field
     const nodes = results.map((result, i) => ({
       id: i,
       paperId: result.paperId,
       title: result.title,
-      pagerank: result.pagerank,
+      score: getScore(result), // Use generic score
       citationCount: result.citationCount,
       authors: result.authors,
       year: result.year,
       shortTitle: getShortTitle(result.title)
     }));
 
-    // Calculate max/min pagerank for scaling
-    const maxRank = Math.max(...results.map(r => r.pagerank));
-    const minRank = Math.min(...results.map(r => r.pagerank));
+    // FIX: Calculate max/min using dynamic score
+    const maxRank = Math.max(...results.map(r => getScore(r)));
+    const minRank = Math.min(...results.map(r => getScore(r)));
 
     // Create links from edges (if provided)
     const links = [];
@@ -89,7 +100,7 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
       inDegree[typeof link.target === 'object' ? link.target.id : link.target]++;
     });
 
-    // Color scale based on PageRank
+    // Color scale based on score
     const colorScale = d3.scaleSequential()
       .domain([minRank, maxRank])
       .interpolator(d3.interpolateRgb('#ff4444', '#4CAF50'));
@@ -99,12 +110,12 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
       .domain([minRank, maxRank])
       .range([15, 45]);
 
-    // Create force simulation
+    // FIX: Use dynamic score in simulation
     const simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(links).id(d => d.id).distance(150))
       .force('charge', d3.forceManyBody().strength(-800))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => radiusScale(d.pagerank) + 10));
+      .force('collision', d3.forceCollide().radius(d => radiusScale(d.score) + 10));
 
     // Create arrow markers for directed edges
     svg.append('defs').selectAll('marker')
@@ -138,10 +149,10 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
       .join('g')
       .call(drag(simulation));
 
-    // Add circles for nodes
+    // FIX: Use dynamic score for radius
     node.append('circle')
-      .attr('r', d => radiusScale(d.pagerank))
-      .attr('fill', d => colorScale(d.pagerank))
+      .attr('r', d => radiusScale(d.score))
+      .attr('fill', d => colorScale(d.score))
       .attr('stroke', '#fff')
       .attr('stroke-width', 3)
       .style('cursor', 'pointer')
@@ -160,6 +171,11 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
             (l.source.id === d.id || l.target.id === d.id) ? 4 : 2
           );
 
+        // FIX: Show correct score label in tooltip
+        const scoreLabel = scoreField === 'pagerank' ? 'PageRank' 
+          : scoreField === 'weighted_pagerank' ? 'Weighted PageRank'
+          : 'Authority Score';
+
         // Show tooltip
         const tooltip = d3.select(tooltipRef.current);
         tooltip.style('opacity', 1)
@@ -172,7 +188,7 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
               <div style="display: grid; gap: 6px;">
                 <div><strong>Authors:</strong> ${d.authors.slice(0, 3).join(', ')}${d.authors.length > 3 ? ' et al.' : ''}</div>
                 <div><strong>Year:</strong> ${d.year || 'N/A'}</div>
-                <div><strong>PageRank:</strong> ${d.pagerank.toFixed(6)}</div>
+                <div><strong>${scoreLabel}:</strong> ${d.score.toFixed(6)}</div>
                 <div><strong>Citations:</strong> ${d.citationCount || 0}</div>
                 <div><strong>In-degree:</strong> ${inDegree[d.id]} citations</div>
                 <div><strong>Out-degree:</strong> ${outDegree[d.id]} references</div>
@@ -203,7 +219,7 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
     node.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', 5)
-      .attr('font-size', d => Math.max(10, radiusScale(d.pagerank) * 0.4))
+      .attr('font-size', d => Math.max(10, radiusScale(d.score) * 0.4))
       .attr('font-weight', 'bold')
       .attr('fill', '#fff')
       .attr('pointer-events', 'none')
@@ -212,7 +228,7 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
     // Add labels below nodes
     node.append('text')
       .attr('text-anchor', 'middle')
-      .attr('dy', d => radiusScale(d.pagerank) + 18)
+      .attr('dy', d => radiusScale(d.score) + 18)
       .attr('font-size', 11)
       .attr('font-weight', '600')
       .attr('fill', '#0047AB')
@@ -276,7 +292,7 @@ const NetworkGraph = ({ results, adjacencyMatrix }) => {
           <div className="legend">
             <div className="legend-item">
               <div className="legend-color" style={{ background: 'linear-gradient(90deg, #ff4444, #4CAF50)' }}></div>
-              <span>PageRank Score (Low → High)</span>
+              <span>Score (Low → High)</span>
             </div>
             <div className="legend-item">
               <div className="legend-icon">⭕</div>

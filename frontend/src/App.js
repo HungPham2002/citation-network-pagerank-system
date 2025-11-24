@@ -11,12 +11,14 @@ import ExportDataButton from './ExportDataButton';
 import AlgorithmSelector from './AlgorithmSelector';
 import ComparisonView from './ComparisonView';
 import FormulaDisplay from './FormulaDisplay';
+import ConvergenceCurve from './ConvergenceCurve';
 
 import { 
   Chart as ChartJS, 
   BarElement, 
   CategoryScale, 
   LinearScale, 
+  LogarithmicScale,
   Tooltip, 
   Legend,
   ArcElement,           
@@ -30,6 +32,7 @@ ChartJS.register(
   BarElement, 
   CategoryScale, 
   LinearScale, 
+  LogarithmicScale,
   Tooltip, 
   Legend,
   ArcElement,           
@@ -745,6 +748,15 @@ function App() {
               comparisonData={comparisonResults}
               algorithms={selectedAlgorithms}
             />
+
+            {comparisonResults.convergence && 
+            Array.isArray(comparisonResults.convergence) && 
+            comparisonResults.convergence.length > 0 && (
+              <ConvergenceCurve 
+                convergenceData={comparisonResults.convergence}
+                algorithms={selectedAlgorithms}
+              />
+            )}
 
             {/* Network Graph */}
             {networkData && (

@@ -94,7 +94,7 @@ function ConvergenceCurve({ convergenceData, algorithms }) {
   return (
     <div className="convergence-curve-container">
       <div className="convergence-header">
-        <h3>📈 Convergence Curve Analysis</h3>
+        <h3>Convergence Curve Analysis</h3>
         <p>Lower residual = Better convergence. Logarithmic scale shows convergence speed.</p>
       </div>
       
@@ -124,7 +124,7 @@ function ConvergenceCurve({ convergenceData, algorithms }) {
         </ul>
 
         <div className="convergence-explanation">
-          <strong>📚 Understanding Convergence:</strong>
+          <strong>Understanding Convergence:</strong>
           <p>
             The convergence curve shows how quickly each algorithm reaches a stable solution. 
             Steeper curves indicate faster convergence. The y-axis uses logarithmic scale to 

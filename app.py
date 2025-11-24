@@ -313,13 +313,16 @@ def build_citation_network_from_papers(paper_identifiers, max_citations=20, inpu
 def calculate_pagerank(papers, citation_graph, damping_factor=0.85, max_iterations=100):
     """Tính PageRank cho citation network"""
     if not papers:
-        return []
+        return [], []
     
     n = len(papers)
     paper_ids = list(papers.keys())
     paper_index = {pid: i for i, pid in enumerate(paper_ids)}
     
     pagerank = np.ones(n) / n
+    
+    # Track residuals for convergence curve
+    residuals = []
     
     adjacency_matrix = np.zeros((n, n))
     out_degree = np.zeros(n)
@@ -345,7 +348,11 @@ def calculate_pagerank(papers, citation_graph, damping_factor=0.85, max_iteratio
         if pagerank_sum > 0:
             new_pagerank = new_pagerank / pagerank_sum
         
-        if np.linalg.norm(new_pagerank - pagerank) < 1e-6:
+        # Calculate residual
+        residual = np.linalg.norm(new_pagerank - pagerank)
+        residuals.append(float(residual))
+        
+        if residual < 1e-6:
             logger.info(f"PageRank converged after {iteration + 1} iterations")
             break
         
@@ -365,30 +372,23 @@ def calculate_pagerank(papers, citation_graph, damping_factor=0.85, max_iteratio
     
     results.sort(key=lambda x: x['pagerank'], reverse=True)
     
-    return results
+    return results, residuals
 
-
-# Thêm sau hàm calculate_pagerank (khoảng dòng 370)
 
 def calculate_hits(papers, citation_graph, max_iterations=100, convergence_threshold=1e-6):
-    """
-    Tính HITS (Hubs and Authorities) scores cho citation network
-    
-    Authority score: Papers được cite nhiều (high in-degree)
-    Hub score: Papers cite nhiều papers khác (high out-degree)
-    """
+    """Tính HITS với convergence tracking"""
     if not papers:
-        return [], []
+        return [], [], 0, []
     
     n = len(papers)
     paper_ids = list(papers.keys())
     paper_index = {pid: i for i, pid in enumerate(paper_ids)}
     
-    # Initialize scores
     authority = np.ones(n)
     hub = np.ones(n)
+    auth_residuals = []
+    hub_residuals = []
     
-    # Build adjacency matrix
     adjacency_matrix = np.zeros((n, n))
     
     for source_id, targets in citation_graph.items():
@@ -397,18 +397,12 @@ def calculate_hits(papers, citation_graph, max_iterations=100, convergence_thres
             for target_id in targets:
                 if target_id in paper_index:
                     target_idx = paper_index[target_id]
-                    # source cites target: source is hub, target is authority
                     adjacency_matrix[source_idx][target_idx] = 1
     
-    # HITS iterations
     for iteration in range(max_iterations):
-        # Update authority scores: A = A^T * H
         new_authority = adjacency_matrix.T @ hub
-        
-        # Update hub scores: H = A * A
         new_hub = adjacency_matrix @ new_authority
         
-        # Normalize
         auth_norm = np.linalg.norm(new_authority)
         hub_norm = np.linalg.norm(new_hub)
         
@@ -417,9 +411,11 @@ def calculate_hits(papers, citation_graph, max_iterations=100, convergence_thres
         if hub_norm > 0:
             new_hub = new_hub / hub_norm
         
-        # Check convergence
+        # Track residual (combined authority + hub changes)
         auth_diff = np.linalg.norm(new_authority - authority)
         hub_diff = np.linalg.norm(new_hub - hub)
+        auth_residuals.append(float(auth_diff))
+        hub_residuals.append(float(hub_diff))
         
         if auth_diff < convergence_threshold and hub_diff < convergence_threshold:
             logger.info(f"HITS converged after {iteration + 1} iterations")
@@ -428,7 +424,6 @@ def calculate_hits(papers, citation_graph, max_iterations=100, convergence_thres
         authority = new_authority
         hub = new_hub
     
-    # Create results
     authority_results = []
     hub_results = []
     
@@ -442,44 +437,33 @@ def calculate_hits(papers, citation_graph, max_iterations=100, convergence_thres
             'citationCount': paper['citationCount']
         }
         
-        authority_results.append({
-            **base_result,
-            'authority_score': float(authority[i])
-        })
-        
-        hub_results.append({
-            **base_result,
-            'hub_score': float(hub[i])
-        })
+        authority_results.append({**base_result, 'authority_score': float(authority[i])})
+        hub_results.append({**base_result, 'hub_score': float(hub[i])})
     
-    # Sort by scores
     authority_results.sort(key=lambda x: x['authority_score'], reverse=True)
     hub_results.sort(key=lambda x: x['hub_score'], reverse=True)
-    
-    return authority_results, hub_results, iteration + 1
+
+    combined_residuals = [(a + h) / 2 for a, h in zip(auth_residuals, hub_residuals)]
+
+    return authority_results, hub_results, iteration + 1, combined_residuals
 
 
 def calculate_weighted_pagerank(papers, citation_graph, damping_factor=0.85, max_iterations=100):
-    """
-    Tính Weighted PageRank - edge weights dựa trên citation count
-    
-    Papers có citation count cao → incoming edges có weight cao hơn
-    """
+    """Tính Weighted PageRank với convergence tracking"""
     if not papers:
-        return []
+        return [], [], []
     
     n = len(papers)
     paper_ids = list(papers.keys())
     paper_index = {pid: i for i, pid in enumerate(paper_ids)}
     
-    # Initialize PageRank scores
     pagerank = np.ones(n) / n
+    residuals = []
     
     # Build weighted adjacency matrix
     weighted_adjacency = np.zeros((n, n))
     out_weight = np.zeros(n)
     
-    # Calculate weights based on citation counts
     citation_counts = np.array([papers[pid]['citationCount'] for pid in paper_ids])
     max_citations = max(citation_counts) if max(citation_counts) > 0 else 1
     
@@ -490,37 +474,34 @@ def calculate_weighted_pagerank(papers, citation_graph, damping_factor=0.85, max
             for target_id in targets:
                 if target_id in paper_index:
                     target_idx = paper_index[target_id]
-                    
-                    # Weight based on target's citation count
                     target_citations = papers[target_id]['citationCount']
-                    weight = 1 + (target_citations / max_citations)  # Weight range: [1, 2]
+                    weight = 1 + (target_citations / max_citations)
                     
                     weighted_adjacency[source_idx][target_idx] = weight
                     out_weight[source_idx] += weight
     
-    # Weighted PageRank iterations
     for iteration in range(max_iterations):
         new_pagerank = np.ones(n) * (1 - damping_factor) / n
         
         for i in range(n):
             for j in range(n):
                 if weighted_adjacency[j][i] > 0 and out_weight[j] > 0:
-                    # Weighted contribution
                     new_pagerank[i] += damping_factor * pagerank[j] * (weighted_adjacency[j][i] / out_weight[j])
         
-        # Normalize
         pagerank_sum = np.sum(new_pagerank)
         if pagerank_sum > 0:
             new_pagerank = new_pagerank / pagerank_sum
         
-        # Check convergence
-        if np.linalg.norm(new_pagerank - pagerank) < 1e-6:
+        # track residual
+        residual = np.linalg.norm(new_pagerank - pagerank)
+        residuals.append(float(residual))
+        
+        if residual < 1e-6:
             logger.info(f"Weighted PageRank converged after {iteration + 1} iterations")
             break
         
         pagerank = new_pagerank
     
-    # Create results
     results = []
     for i, paper_id in enumerate(paper_ids):
         paper = papers[paper_id]
@@ -533,10 +514,9 @@ def calculate_weighted_pagerank(papers, citation_graph, damping_factor=0.85, max
             'weighted_pagerank': float(pagerank[i])
         })
     
-    # Sort by weighted PageRank score
     results.sort(key=lambda x: x['weighted_pagerank'], reverse=True)
     
-    return results, iteration + 1
+    return results, iteration + 1, residuals
 
 
 def calculate_correlation(results1, results2, score_key1='pagerank', score_key2='authority_score'):
@@ -735,7 +715,7 @@ def calculate_citation_pagerank():
                     'to': target_id
                 })
         
-        # ✅ LẤY PERMISSIONS THỰC TẾ
+        # LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
         
         response_data = {
@@ -749,10 +729,10 @@ def calculate_citation_pagerank():
                 'totalCitations': sum(len(targets) for targets in citation_graph.values())
             },
             'userRole': user_role,
-            'permissions': permissions  # ✅ Trả về permissions thực tế
+            'permissions': permissions  # Trả về permissions thực tế
         }
         
-        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+        # CHỈ THÊM METRICS NẾU CÓ QUYỀN
         if permissions.get('view_network_metrics', False):
             network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
             response_data['networkMetrics'] = network_metrics
@@ -835,7 +815,7 @@ def calculate_citation_pagerank_by_papers():
                     'to': target_id
                 })
         
-        # ✅ LẤY PERMISSIONS THỰC TẾ
+        # LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
         
         response_data = {
@@ -852,7 +832,7 @@ def calculate_citation_pagerank_by_papers():
             'permissions': permissions
         }
         
-        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+        # CHỈ THÊM METRICS NẾU CÓ QUYỀN
         if permissions.get('view_network_metrics', False):
             network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
             response_data['networkMetrics'] = network_metrics
@@ -1001,13 +981,13 @@ def calculate_with_algorithm():
         import time
         start_time = time.time()
         
-        # ✅ LẤY PERMISSIONS THỰC TẾ
+        # LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
         
         # Calculate based on algorithm
         if algorithm == 'pagerank':
-            results = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
-            iterations = max_iterations
+            results, residuals = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)  # ✅ FIX
+            iterations = len(residuals)  # FIX: use actual iterations
             computation_time = time.time() - start_time
             
             response_data = {
@@ -1020,13 +1000,13 @@ def calculate_with_algorithm():
                 }
             }
             
-            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            # CHỈ THÊM METRICS NẾU CÓ QUYỀN
             if permissions.get('view_network_metrics', False):
                 network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
                 response_data['networkMetrics'] = network_metrics
             
         elif algorithm == 'hits':
-            authority_results, hub_results, iterations = calculate_hits(papers, citation_graph, max_iterations)
+            authority_results, hub_results, iterations, residuals = calculate_hits(papers, citation_graph, max_iterations)  # ✅ FIX
             computation_time = time.time() - start_time
             
             response_data = {
@@ -1040,13 +1020,13 @@ def calculate_with_algorithm():
                 }
             }
             
-            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            # CHỈ THÊM METRICS NẾU CÓ QUYỀN
             if permissions.get('view_network_metrics', False):
                 network_metrics = calculate_network_metrics_simple(papers, citation_graph, authority_results)
                 response_data['networkMetrics'] = network_metrics
             
         elif algorithm == 'weighted_pagerank':
-            results, iterations = calculate_weighted_pagerank(papers, citation_graph, damping_factor, max_iterations)
+            results, iterations, residuals = calculate_weighted_pagerank(papers, citation_graph, damping_factor, max_iterations)  # ✅ FIX
             computation_time = time.time() - start_time
             
             response_data = {
@@ -1059,7 +1039,7 @@ def calculate_with_algorithm():
                 }
             }
             
-            # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN
+            # CHỈ THÊM METRICS NẾU CÓ QUYỀN
             if permissions.get('view_network_metrics', False):
                 network_metrics = calculate_network_metrics_simple(papers, citation_graph, results)
                 response_data['networkMetrics'] = network_metrics
@@ -1094,7 +1074,7 @@ def calculate_with_algorithm():
             'totalCitations': sum(len(targets) for targets in citation_graph.values())
         }
         
-        # ✅ THÊM PERMISSIONS VÀO RESPONSE
+        # THÊM PERMISSIONS VÀO RESPONSE
         response_data['permissions'] = permissions
         response_data['userRole'] = user_role
         
@@ -1142,42 +1122,57 @@ def compare_algorithms():
         
         import time
         comparison_results = {}
-        
+        convergence_data = []
+
         # Run each algorithm
         for algo in algorithms:
             start_time = time.time()
             
             if algo == 'pagerank':
-                results = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
-                iterations = max_iterations
+                results, residuals = calculate_pagerank(papers, citation_graph, damping_factor, max_iterations)
                 comparison_results['pagerank'] = {
                     'results': results[:50],
                     'performance': {
                         'computation_time': round(time.time() - start_time, 3),
-                        'iterations': iterations
+                        'iterations': len(residuals),
+                        'papers_analyzed': len(papers)
                     }
                 }
+                convergence_data.append({
+                    'algorithm': 'pagerank',
+                    'residuals': residuals
+                })
                 
             elif algo == 'hits':
-                authority_results, hub_results, iterations = calculate_hits(papers, citation_graph, max_iterations)
+                authority_results, hub_results, iterations, residuals = calculate_hits(papers, citation_graph, max_iterations)
                 comparison_results['hits'] = {
                     'authority_results': authority_results[:50],
                     'hub_results': hub_results[:50],
                     'performance': {
                         'computation_time': round(time.time() - start_time, 3),
-                        'iterations': iterations
+                        'iterations': iterations,
+                        'papers_analyzed': len(papers)
                     }
                 }
+                convergence_data.append({
+                    'algorithm': 'hits',
+                    'residuals': residuals
+                })
                 
             elif algo == 'weighted_pagerank':
-                results, iterations = calculate_weighted_pagerank(papers, citation_graph, damping_factor, max_iterations)
+                results, iterations, residuals = calculate_weighted_pagerank(papers, citation_graph, damping_factor, max_iterations)
                 comparison_results['weighted_pagerank'] = {
                     'results': results[:50],
                     'performance': {
                         'computation_time': round(time.time() - start_time, 3),
-                        'iterations': iterations
+                        'iterations': iterations,
+                        'papers_analyzed': len(papers)
                     }
                 }
+                convergence_data.append({
+                    'algorithm': 'weighted_pagerank',
+                    'residuals': residuals
+                })
         
         # Calculate correlations
         correlations = {}
@@ -1223,13 +1218,14 @@ def compare_algorithms():
                     'to': target_id
                 })
         
-        # ✅ LẤY PERMISSIONS THỰC TẾ
+        # LẤY PERMISSIONS THỰC TẾ
         permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
-        
+
         response_data = {
             'algorithms': comparison_results,
             'correlations': correlations,
             'overlaps': overlaps,
+            'convergence': convergence_data,
             'network': {
                 'nodes': nodes,
                 'edges': edges
@@ -1238,11 +1234,11 @@ def compare_algorithms():
                 'totalPapers': len(papers),
                 'totalCitations': sum(len(targets) for targets in citation_graph.values())
             },
-            'permissions': permissions,  # ✅ THÊM
-            'userRole': user_role  # ✅ THÊM
+            'permissions': permissions,
+            'userRole': user_role
         }
         
-        # ✅ CHỈ THÊM METRICS NẾU CÓ QUYỀN (cho comparison mode)
+        # CHỈ THÊM METRICS NẾU CÓ QUYỀN (cho comparison mode)
         if permissions.get('view_network_metrics', False):
             # Lấy results đầu tiên để tính metrics
             first_algo = algorithms[0]
