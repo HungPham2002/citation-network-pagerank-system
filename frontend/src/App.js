@@ -160,16 +160,57 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (userRole) {
+      console.log('🔄 Role changed to:', userRole);
+      // Clear tất cả results khi đổi role
+      setResults([]);
+      setComparisonResults(null);
+      setSingleAlgorithmResult(null);
+      setNetworkMetrics(null);
+      setPermissions(null);
+      
+      // Reset algorithm selector về default cho Researcher
+      if (userRole === 'researcher') {
+        setSelectedAlgorithms(['pagerank']);
+      }
+    }
+  }, [userRole]);  // Trigger khi userRole thay đổi
+
   // ===== HANDLER FUNCTIONS =====
+
   const handleSelectRole = (role) => {
-    console.log('✅ Role selected:', role);
+    console.log('Role selected:', role);
     setUserRole(role);
     localStorage.setItem('userRole', role);
+    
+    // RESET STATE KHI CHỌN ROLE MỚI
+    setResults([]);
+    setComparisonResults(null);
+    setSingleAlgorithmResult(null);
+    setNetworkData(null);
+    setStats(null);
+    setNetworkMetrics(null);
+    setPermissions(null);
+    setSuccess('');
+    setError('');
+    setSelectedAlgorithms(['pagerank']);  // Reset về default
+    
     setIsRoleModalOpen(false);
   };
 
   const handleChangeRole = () => {
     console.log('🔄 Opening role modal to change...');
+    // RESET TẤT CẢ STATE KHI ĐỔI ROLE
+    setResults([]);
+    setComparisonResults(null);
+    setSingleAlgorithmResult(null);
+    setNetworkData(null);
+    setStats(null);
+    setNetworkMetrics(null);
+    setPermissions(null);
+    setSuccess('');
+    setError('');
     setIsRoleModalOpen(true);
   };
 
@@ -190,12 +231,18 @@ function App() {
         setLoading(false);
         return;
       }
+      
+      if (selectedAlgorithms.length > 1 && userRole === 'researcher') {
+        setError('❌ Algorithm comparison is only available for Data Scientists. Please switch to Data Scientist role.');
+        setLoading(false);
+        return;
+      }
 
       let endpoint = '';
       let requestBody = {
         damping_factor: algorithmParameters.damping_factor,
         max_iterations: algorithmParameters.max_iterations,
-        user_role: userRole  // ✅ Gửi user role
+        user_role: userRole  // Gửi user role
       };
 
       // Xác định input mode
@@ -246,16 +293,16 @@ function App() {
           setNetworkData(data.network);
           setStats(data.stats);
           
-          // ✅ CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
+          // CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
           if (data.networkMetrics) {
             setNetworkMetrics(data.networkMetrics);
           } else {
-            setNetworkMetrics(null);  // ✅ Clear metrics nếu không có quyền
+            setNetworkMetrics(null);  // Clear metrics nếu không có quyền
           }
           
-          // ✅ LẤY PERMISSIONS TỪ BACKEND
+          // LẤY PERMISSIONS TỪ BACKEND
           setPermissions(data.permissions);
-          setSuccess(`✅ Successfully compared ${selectedAlgorithms.length} algorithms`);
+          setSuccess(`Successfully compared ${selectedAlgorithms.length} algorithms`);
         } else {
           setError(data.error || 'An error occurred');
         }
@@ -278,11 +325,11 @@ function App() {
           setNetworkData(data.network);
           setStats(data.stats);
           
-          // ✅ CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
+          // CHỈ SET METRICS NẾU BACKEND TRẢ VỀ
           if (data.networkMetrics) {
             setNetworkMetrics(data.networkMetrics);
           } else {
-            setNetworkMetrics(null);  // ✅ Clear metrics
+            setNetworkMetrics(null);  // Clear metrics
           }
           
           // Extract results
@@ -292,9 +339,9 @@ function App() {
             setResults(data.results);
           }
           
-          // ✅ LẤY PERMISSIONS TỪ BACKEND
+          // LẤY PERMISSIONS TỪ BACKEND
           setPermissions(data.permissions);
-          setSuccess(`✅ Successfully analyzed ${data.stats.totalPapers} papers`);
+          setSuccess(`Successfully analyzed ${data.stats.totalPapers} papers`);
         } else {
           setError(data.error || 'An error occurred');
         }
@@ -692,7 +739,7 @@ function App() {
         {success && <div className="success">{success}</div>}
 
         {/* COMPARISON RESULTS */}
-        {comparisonResults && (
+        {comparisonResults && userRole === 'data_scientist' && (
           <>
             <ComparisonView 
               comparisonData={comparisonResults}
