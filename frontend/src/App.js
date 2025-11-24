@@ -98,7 +98,7 @@ Generative Adversarial Networks
 
 ## About HCMUT
 
-Ho Chi Minh City University of Technology (HCMUT) is one of the leading engineering and technology universities in Vietnam, under the Vietnam National University – Ho Chi Minh City (VNU-HCM). The university is committed to excellence in research and education.
+Ho Chi Minh City University of Technology (HCMUT) is one of the leading engineering and technology universities in Vietnam, under the Vietnam National University – Ho Chi Minh City (VNU-HCM). The university is renowned for its strong focus on innovation, research, and practical applications in science and technology, providing a high-quality education environment for both undergraduate and graduate students.
 
 ## About This Project
 
@@ -119,6 +119,7 @@ This system uses **Semantic Scholar API** which provides:
 ## Acknowledgment
 
 The authors would like to express their sincere gratitude to BSc. Le Nho Han and BSc. Vu Tran Thanh Huong for their valuable suggestions and insightful reviews throughout the research and implementation of this project.
+Semantic Scholar API for Providing metadata.
 `;
 
 function App() {

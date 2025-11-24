@@ -32,7 +32,7 @@ USER_ROLES = {
             'view_network_metrics': False,
             'export_data': False,
             'advanced_analysis': False,
-            'customize_parameters': False  # THÊM DÒNG NÀY
+            'customize_parameters': False 
         }
     },
     'data_scientist': {
@@ -45,7 +45,7 @@ USER_ROLES = {
             'view_network_metrics': True,
             'export_data': True,
             'advanced_analysis': True,
-            'customize_parameters': True  # THÊM DÒNG NÀY
+            'customize_parameters': True  
         }
     }
 }
@@ -75,7 +75,7 @@ except ImportError:
     logger.error("   pip install semanticscholar python-dotenv")
     sch = None
 
-# ============= HELPER FUNCTIONS (giữ nguyên) =============
+# ============= HELPER FUNCTIONS =============
 def search_papers_by_author(author_name, limit=10):
     """Tìm papers của một tác giả"""
     try:

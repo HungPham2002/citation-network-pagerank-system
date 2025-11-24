@@ -71,6 +71,14 @@ Hệ thống phân tích mạng trích dẫn học thuật sử dụng thuật t
 - **RAM**: Tối thiểu 4GB (khuyến nghị 8GB cho mạng lớn)
 - **Kết nối Internet**: Cần thiết để truy cập Semantic Scholar API
 
+## Data Source
+
+This system uses **Semantic Scholar API** which provides:
+- 200M+ academic papers
+- Citation relationships
+- Author information
+- Publication metadata
+
 ## 🚀 Hướng dẫn cài đặt và chạy
 
 ### Bước 1: Clone Repository
