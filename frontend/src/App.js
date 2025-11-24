@@ -391,6 +391,14 @@ function App() {
         return;
       }
 
+      // ⭐ KIỂM TRA COMPARISON MODE
+      if (selectedAlgorithms.length > 1 && userRole === 'researcher') {
+        setError('❌ Algorithm comparison is only available for Data Scientists.');
+        setLoading(false);
+        setIsStreamingProgress(false);
+        return;
+      }
+
       // Prepare request body
       let requestBody = {
         damping_factor: algorithmParameters.damping_factor,
@@ -430,9 +438,42 @@ function App() {
         requestBody.input_mode = 'papers';
       }
 
+      if (selectedAlgorithms.length > 1) {
+        requestBody.algorithms = selectedAlgorithms;
+        
+        const response = await fetch(`${apiUrl}/api/compare-algorithms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          setComparisonResults(data);
+          setNetworkData(data.network);
+          setStats(data.stats);
+          
+          if (data.networkMetrics) {
+            setNetworkMetrics(data.networkMetrics);
+          } else {
+            setNetworkMetrics(null);
+          }
+          
+          setPermissions(data.permissions);
+          setSuccess(`Successfully compared ${selectedAlgorithms.length} algorithms`);
+          setLoading(false);
+          setIsStreamingProgress(false);
+        } else {
+          setError(data.error || 'An error occurred');
+          setLoading(false);
+          setIsStreamingProgress(false);
+        }
+        return; 
+      }
+
       console.log('🚀 Starting SSE request...');
 
-      // Start SSE connection
       const response = await fetch(`${apiUrl}/api/calculate-pagerank-stream`, {
         method: 'POST',
         headers: {
@@ -445,7 +486,7 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Read SSE stream
+      // Read SSE stream (phần còn lại giữ nguyên)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -458,22 +499,15 @@ function App() {
           break;
         }
 
-        // Decode chunk và append vào buffer
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        
-        // Giữ lại dòng cuối chưa hoàn chỉnh
         buffer = lines.pop() || '';
 
-        // Xử lý từng dòng
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
               
-              console.log('📊 Progress update:', data);
-              
-              // Update progress state
               if (data.progress !== undefined) {
                 setProgress(data.progress);
               }
@@ -486,11 +520,7 @@ function App() {
                 setProgressStage(data.stage);
               }
               
-              // Handle completion
               if (data.status === 'complete') {
-                console.log('✅ Calculation complete!');
-                
-                // Set results
                 setResults(data.results || []);
                 setNetworkData(data.network);
                 setStats(data.stats);
@@ -500,7 +530,6 @@ function App() {
                   setNetworkMetrics(data.networkMetrics);
                 }
                 
-                // Set single algorithm result format
                 setSingleAlgorithmResult({
                   results: data.results,
                   algorithm: 'pagerank',
@@ -512,14 +541,12 @@ function App() {
                 
                 setSuccess(`Successfully analyzed ${data.stats?.totalPapers || 0} papers`);
                 
-                // Delay để hiển thị 100%
                 setTimeout(() => {
                   setLoading(false);
                   setIsStreamingProgress(false);
                 }, 1000);
               }
               
-              // Handle error
               if (data.status === 'error') {
                 console.error('❌ Stream error:', data.error);
                 setError(data.error || 'An error occurred during calculation');
@@ -528,7 +555,7 @@ function App() {
               }
               
             } catch (parseError) {
-              console.error('❌ Error parsing SSE data:', parseError, 'Line:', line);
+              console.error('❌ Error parsing SSE data:', parseError);
             }
           }
         }
