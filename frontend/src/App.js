@@ -12,6 +12,7 @@ import AlgorithmSelector from './AlgorithmSelector';
 import ComparisonView from './ComparisonView';
 import FormulaDisplay from './FormulaDisplay';
 import ConvergenceCurve from './ConvergenceCurve';
+import ProgressBar from './ProgressBar';
 
 import { 
   Chart as ChartJS, 
@@ -90,10 +91,10 @@ Generative Adversarial Networks
 
 ## Stakeholders
 
-🔬 **Researchers**: Find influential papers and authors in your field
-📊 **Data Scientists**: Analyze citation patterns and trends
-🏛️ **Academic Institutions**: Evaluate research impact and ranking
-👨‍🎓 **Students**: Discover foundational papers in research areas
+**Researchers**: Find influential papers and authors in your field
+**Data Scientists**: Analyze citation patterns and trends
+**Academic Institutions**: Evaluate research impact and ranking
+**Students**: Discover foundational papers in research areas
 
 ## About HCMUT
 
@@ -149,6 +150,12 @@ function App() {
   const [comparisonResults, setComparisonResults] = useState(null);
   const [singleAlgorithmResult, setSingleAlgorithmResult] = useState(null);
   const [showFormulaExplanation, setShowFormulaExplanation] = useState(false);
+
+  // ===== SSE PROGRESS TRACKING STATES =====
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [progressStage, setProgressStage] = useState('init');
+  const [isStreamingProgress, setIsStreamingProgress] = useState(false);
 
   // ===== EFFECTS =====
   useEffect(() => {
@@ -355,6 +362,182 @@ function App() {
       console.error('Request error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ===== SSE HANDLER FUNCTION =====
+  const handleCalculateWithProgress = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setIsStreamingProgress(true);
+    setProgress(0);
+    setProgressMessage('Starting...');
+    setProgressStage('init');
+    setError('');
+    setSuccess('');
+    setResults([]);
+    setComparisonResults(null);
+    setSingleAlgorithmResult(null);
+
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+    try {
+      // Validation
+      if (!userRole) {
+        setError('Please select your role first');
+        setLoading(false);
+        setIsStreamingProgress(false);
+        return;
+      }
+
+      // Prepare request body
+      let requestBody = {
+        damping_factor: algorithmParameters.damping_factor,
+        max_iterations: algorithmParameters.max_iterations,
+        user_role: userRole
+      };
+
+      // Xác định input mode
+      if (inputMode === 'authors') {
+        const authorList = authors.split('\n')
+          .map(author => author.trim())
+          .filter(author => author.length > 0);
+        
+        if (authorList.length === 0) {
+          setError('Please enter at least one author name');
+          setLoading(false);
+          setIsStreamingProgress(false);
+          return;
+        }
+        
+        requestBody.authors = authorList;
+        requestBody.input_mode = 'authors';
+      } else {
+        const paperList = papers.split('\n')
+          .map(paper => paper.trim())
+          .filter(paper => paper.length > 0);
+        
+        if (paperList.length === 0) {
+          setError(`Please enter at least one paper ${paperInputType === 'doi' ? 'DOI' : 'title'}`);
+          setLoading(false);
+          setIsStreamingProgress(false);
+          return;
+        }
+        
+        requestBody.papers = paperList;
+        requestBody.input_type = paperInputType;
+        requestBody.input_mode = 'papers';
+      }
+
+      console.log('🚀 Starting SSE request...');
+
+      // Start SSE connection
+      const response = await fetch(`${apiUrl}/api/calculate-pagerank-stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Read SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('✅ Stream complete');
+          break;
+        }
+
+        // Decode chunk và append vào buffer
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Giữ lại dòng cuối chưa hoàn chỉnh
+        buffer = lines.pop() || '';
+
+        // Xử lý từng dòng
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              console.log('📊 Progress update:', data);
+              
+              // Update progress state
+              if (data.progress !== undefined) {
+                setProgress(data.progress);
+              }
+              
+              if (data.message) {
+                setProgressMessage(data.message);
+              }
+              
+              if (data.stage) {
+                setProgressStage(data.stage);
+              }
+              
+              // Handle completion
+              if (data.status === 'complete') {
+                console.log('✅ Calculation complete!');
+                
+                // Set results
+                setResults(data.results || []);
+                setNetworkData(data.network);
+                setStats(data.stats);
+                setPermissions(data.permissions);
+                
+                if (data.networkMetrics) {
+                  setNetworkMetrics(data.networkMetrics);
+                }
+                
+                // Set single algorithm result format
+                setSingleAlgorithmResult({
+                  results: data.results,
+                  algorithm: 'pagerank',
+                  performance: {
+                    computation_time: 0,
+                    iterations: 0
+                  }
+                });
+                
+                setSuccess(`Successfully analyzed ${data.stats?.totalPapers || 0} papers`);
+                
+                // Delay để hiển thị 100%
+                setTimeout(() => {
+                  setLoading(false);
+                  setIsStreamingProgress(false);
+                }, 1000);
+              }
+              
+              // Handle error
+              if (data.status === 'error') {
+                console.error('❌ Stream error:', data.error);
+                setError(data.error || 'An error occurred during calculation');
+                setLoading(false);
+                setIsStreamingProgress(false);
+              }
+              
+            } catch (parseError) {
+              console.error('❌ Error parsing SSE data:', parseError, 'Line:', line);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in SSE connection:', error);
+      setError(error.message || 'Failed to connect to server');
+      setLoading(false);
+      setIsStreamingProgress(false);
     }
   };
 
@@ -725,21 +908,62 @@ function App() {
               </p>
             </div>
             
-            <button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="loading"></span>
-                  Analyzing Citations...
-                </>
-              ) : (
-                '🚀 Calculate Citation PageRank'
-              )}
-            </button>
+            {/* Submit Button với 2 modes: Normal và SSE */}
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {/* Button 1: Normal mode (existing) */}
+              {/* <button 
+                type="submit" 
+                disabled={loading}
+                style={{ 
+                  flex: '1', 
+                  minWidth: '280px',
+                  background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                }}
+              >
+                {loading && !isStreamingProgress ? (
+                  <>
+                    <span className="loading"></span>
+                    Analyzing Citations...
+                  </>
+                ) : (
+                  '🚀 Calculate PageRank (Normal)'
+                )}
+              </button> */}
+
+              {/* Button 2: SSE mode with progress */}
+              <button 
+                type="button"
+                onClick={handleCalculateWithProgress}
+                disabled={loading}
+                style={{ 
+                  flex: '1', 
+                  minWidth: '280px',
+                  background: loading ? '#ccc' : 'linear-gradient(135deg, #59abfeff 0%, #2857ffff 100%)'
+                }}
+              >
+                {loading && isStreamingProgress ? (
+                  <>
+                    <span className="loading"></span>
+                    Processing {progress}%...
+                  </>
+                ) : (
+                  '🚀 Calculating PageRank 🚀'
+                )}
+              </button>
+            </div>
           </form>
         )}
 
         {error && <div className="error">❌ {error}</div>}
         {success && <div className="success">{success}</div>}
+        {/* Progress Bar - Hiển thị khi đang streaming */}
+        {loading && isStreamingProgress && (
+          <ProgressBar 
+            progress={progress}
+            message={progressMessage}
+            stage={progressStage}
+          />
+        )}
 
         {/* COMPARISON RESULTS */}
         {comparisonResults && userRole === 'data_scientist' && (

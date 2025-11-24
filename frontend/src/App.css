@@ -515,3 +515,35 @@ tr:last-child td {
 .btn-toggle-formula:active {
   transform: translateY(0);
 }
+
+/* SSE Progress Buttons */
+button[type="button"] {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 16px;
+  color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+button[type="button"]:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+button[type="button"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+button[type="submit"],
+button[type="button"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

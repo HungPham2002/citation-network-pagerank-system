@@ -9,6 +9,7 @@ import logging
 import time
 import os 
 from dotenv import load_dotenv
+from flask import Response, stream_with_context
 
 load_dotenv()
 
@@ -634,6 +635,184 @@ def calculate_network_metrics_simple(papers, citation_graph, results):
         'degree_distribution': {}
     }
 
+def send_progress(status, progress, message, **extra_data):
+    """Helper function to send progress updates via SSE"""
+    data = {
+        'status': status,
+        'progress': progress,
+        'message': message,
+        **extra_data
+    }
+    return f"data: {json.dumps(data)}\n\n"
+
+def build_citation_network_with_progress(author_names, max_papers_per_author=10):
+    """Xây dựng citation network với progress tracking"""
+    all_papers = {}
+    citation_graph = {}
+    
+    total_authors = len(author_names)
+    yield send_progress('fetching_authors', 5, f'📚 Fetching papers from {total_authors} authors...')
+    
+    logger.info(f"👤 Fetching papers from {total_authors} authors...")
+    for idx, author_name in enumerate(author_names, 1):
+        progress = 5 + int((idx / total_authors) * 25)  # 5% -> 30%
+        yield send_progress(
+            'fetching_author', 
+            progress, 
+            f'[{idx}/{total_authors}] 🔍 Searching: {author_name}',
+            current_author=author_name,
+            current_step=idx,
+            total_steps=total_authors
+        )
+        
+        logger.info(f"[{idx}/{total_authors}] Searching: {author_name}")
+        papers = search_papers_by_author(author_name, limit=max_papers_per_author)
+        
+        logger.info(f"   ✅ Found {len(papers)} papers")
+        for paper in papers:
+            paper_id = paper['paperId']
+            if paper_id not in all_papers:
+                all_papers[paper_id] = paper
+                citation_graph[paper_id] = []
+        
+        yield send_progress(
+            'author_complete', 
+            progress, 
+            f'✅ Found {len(papers)} papers from {author_name}'
+        )
+    
+    # Fetch citations
+    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
+    total_papers = len(paper_ids_to_process)
+    
+    yield send_progress(
+        'fetching_citations', 
+        30, 
+        f'🔗 Fetching citations for {total_papers} papers...',
+        total_papers=total_papers
+    )
+    
+    logger.info(f"🔗 Fetching citations for {total_papers} papers...")
+    logger.info(f"⏱️  Estimated time: ~{total_papers * 1.2:.0f} seconds")
+    
+    for idx, paper_id in enumerate(paper_ids_to_process, 1):
+        progress = 30 + int((idx / total_papers) * 50)  # 30% -> 80%
+        paper_title = all_papers[paper_id]['title'][:50]
+        
+        yield send_progress(
+            'fetching_citation',
+            progress,
+            f'[{idx}/{total_papers}] 📄 {paper_title}...',
+            current_paper=idx,
+            total_papers=total_papers
+        )
+        
+        logger.info(f"[{idx}/{total_papers}] Citations: {paper_title}...")
+        citations = get_paper_citations(paper_id, max_citations=MAX_CITATIONS_PER_PAPER)
+        
+        logger.info(f"   ✅ {len(citations)} citations")
+        for cited_paper in citations:
+            cited_id = cited_paper['paperId']
+            if cited_id not in all_papers:
+                all_papers[cited_id] = cited_paper
+                citation_graph[cited_id] = []
+            
+            if paper_id not in citation_graph[cited_id]:
+                citation_graph[cited_id].append(paper_id)
+    
+    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
+    
+    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers')
+    yield (all_papers, citation_graph)
+
+
+def build_citation_network_from_papers_with_progress(paper_identifiers, max_citations=20, input_type='doi'):
+    """Xây dựng citation network từ papers với progress tracking"""
+    all_papers = {}
+    citation_graph = {}
+    
+    total_identifiers = len(paper_identifiers)
+    yield send_progress('searching_papers', 5, f'📚 Searching for {total_identifiers} papers by {input_type.upper()}...')
+    
+    logger.info(f"📚 Searching for {total_identifiers} papers by {input_type.upper()}...")
+    
+    for idx, identifier in enumerate(paper_identifiers, 1):
+        progress = 5 + int((idx / total_identifiers) * 25)  # 5% -> 30%
+        
+        if input_type == 'doi':
+            yield send_progress('looking_up_doi', progress, f'[{idx}/{total_identifiers}] 🔍 Looking up DOI: {identifier[:40]}...')
+            logger.info(f"[{idx}/{total_identifiers}] Looking up DOI: {identifier}")
+            paper = get_paper_by_doi(identifier)
+            
+            if paper:
+                paper_id = paper['paperId']
+                if paper_id not in all_papers:
+                    all_papers[paper_id] = paper
+                    citation_graph[paper_id] = []
+                    yield send_progress('paper_found', progress, f'✅ {paper["title"][:60]}')
+                    logger.info(f"   ✅ {paper['title'][:60]}")
+            else:
+                yield send_progress('paper_not_found', progress, f'❌ Paper not found for DOI: {identifier[:40]}')
+                logger.warning(f"   ❌ Paper not found for DOI: {identifier}")
+        else:
+            yield send_progress('searching_title', progress, f'[{idx}/{total_identifiers}] 🔍 Searching: {identifier[:60]}...')
+            logger.info(f"[{idx}/{total_identifiers}] Searching title: {identifier[:60]}...")
+            papers = search_paper_by_title(identifier, limit=1)
+            
+            if papers and len(papers) > 0:
+                paper = papers[0]
+                paper_id = paper['paperId']
+                if paper_id not in all_papers:
+                    all_papers[paper_id] = paper
+                    citation_graph[paper_id] = []
+                    yield send_progress('paper_found', progress, f'✅ {paper["title"][:60]}')
+                    logger.info(f"   ✅ {paper['title'][:60]}")
+            else:
+                yield send_progress('paper_not_found', progress, f'❌ Not found: {identifier[:60]}')
+                logger.warning(f"   ❌ Not found: {identifier[:60]}")
+    
+    if len(all_papers) == 0:
+        logger.error("❌ No papers found!")
+        yield send_progress('error', 0, '❌ No papers found!')
+        return
+    
+    # Fetch citations
+    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
+    total_papers = len(paper_ids_to_process)
+    
+    yield send_progress('fetching_citations', 30, f'🔗 Fetching citations for {total_papers} papers...')
+    logger.info(f"🔗 Fetching citations for {total_papers} papers...")
+    logger.info(f"⏱️  Estimated time: ~{total_papers * 1.2:.0f} seconds")
+    
+    for idx, paper_id in enumerate(paper_ids_to_process, 1):
+        progress = 30 + int((idx / total_papers) * 50)  # 30% -> 80%
+        paper_title = all_papers[paper_id]['title'][:50]
+        
+        yield send_progress(
+            'fetching_citation',
+            progress,
+            f'[{idx}/{total_papers}] 📄 {paper_title}...',
+            current_paper=idx,
+            total_papers=total_papers
+        )
+        
+        logger.info(f"[{idx}/{total_papers}] Citations: {paper_title}...")
+        citations = get_paper_citations(paper_id, max_citations=max_citations)
+        
+        logger.info(f"   ✅ {len(citations)} citations")
+        for cited_paper in citations:
+            cited_id = cited_paper['paperId']
+            if cited_id not in all_papers:
+                all_papers[cited_id] = cited_paper
+                citation_graph[cited_id] = []
+            
+            if paper_id not in citation_graph[cited_id]:
+                citation_graph[cited_id].append(paper_id)
+    
+    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
+    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers')
+    yield (all_papers, citation_graph)
+
 # ============= API ENDPOINTS =============
 @app.route('/', methods=['GET'])
 def home():
@@ -1256,6 +1435,278 @@ def compare_algorithms():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/calculate-pagerank-stream', methods=['POST'])
+def calculate_pagerank_stream():
+    """
+    SSE endpoint để tính PageRank với real-time progress updates
+    Hỗ trợ cả input mode: authors và papers (DOI/title)
+    """
+    def generate():
+        try:
+            # Parse request data
+            data = request.get_json()
+            input_mode = data.get('input_mode', 'authors')
+            author_names = data.get('authors', [])
+            paper_identifiers = data.get('papers', [])
+            input_type = data.get('input_type', 'doi')
+            damping_factor = data.get('damping_factor', 0.85)
+            max_iterations = data.get('max_iterations', 100)
+            user_role = data.get('user_role', 'researcher')
+            
+            # Validation
+            if input_mode == 'authors':
+                if not author_names or len(author_names) == 0:
+                    yield send_progress('error', 0, '❌ Please provide at least one author name')
+                    return
+            else:
+                if not paper_identifiers or len(paper_identifiers) == 0:
+                    yield send_progress('error', 0, f'❌ Please provide at least one paper {input_type}')
+                    return
+            
+            if not sch:
+                yield send_progress('error', 0, '❌ Semantic Scholar API not available')
+                return
+            
+            # Send initial progress
+            yield send_progress('starting', 0, '🚀 Initializing...')
+            
+            logger.info(f"Starting PageRank calculation (Mode: {input_mode}, Role: {user_role})")
+            
+            # Build citation network with progress
+            all_papers = None
+            citation_graph = None
+            
+            if input_mode == 'authors':
+                for item in build_citation_network_with_progress(author_names):
+                    if isinstance(item, tuple):
+                        all_papers, citation_graph = item
+                    else:
+                        yield item
+            else:
+                for item in build_citation_network_from_papers_with_progress(
+                    paper_identifiers,
+                    max_citations=MAX_CITATIONS_PER_PAPER,
+                    input_type=input_type
+                ):
+                    if isinstance(item, tuple):
+                        all_papers, citation_graph = item
+                    else:
+                        yield item
+            
+            if not all_papers or len(all_papers) == 0:
+                yield send_progress('error', 0, '❌ No papers found')
+                return
+            
+            # Calculate PageRank
+            yield send_progress('calculating', 85, '🧮 Calculating PageRank...')
+            logger.info("Calculating PageRank...")
+            
+            results, residuals = calculate_pagerank(all_papers, citation_graph, damping_factor, max_iterations)
+            
+            yield send_progress('calculating_complete', 90, '✅ PageRank calculated!')
+            
+            # Prepare network data
+            yield send_progress('preparing', 95, '📊 Preparing results...')
+            logger.info("Preparing network data...")
+            
+            nodes = []
+            edges = []
+            
+            for paper_id, paper in all_papers.items():
+                nodes.append({
+                    'id': paper_id,
+                    'label': paper['title'][:50] + '...' if len(paper['title']) > 50 else paper['title'],
+                    'citationCount': paper['citationCount']
+                })
+            
+            for source_id, targets in citation_graph.items():
+                for target_id in targets:
+                    edges.append({
+                        'from': source_id,
+                        'to': target_id
+                    })
+            
+            # Get permissions
+            permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
+            
+            # Build response
+            response_data = {
+                'status': 'complete',
+                'progress': 100,
+                'message': '✅ Complete!',
+                'results': results[:50],
+                'network': {
+                    'nodes': nodes,
+                    'edges': edges
+                },
+                'stats': {
+                    'totalPapers': len(all_papers),
+                    'totalCitations': sum(len(targets) for targets in citation_graph.values())
+                },
+                'userRole': user_role,
+                'permissions': permissions
+            }
+            
+            # Add network metrics if permitted
+            if permissions.get('view_network_metrics', False):
+                yield send_progress('calculating_metrics', 98, '📈 Calculating network metrics...')
+                network_metrics = calculate_network_metrics_simple(all_papers, citation_graph, results)
+                response_data['networkMetrics'] = network_metrics
+            
+            # Send final result
+            yield f"data: {json.dumps(response_data)}\n\n"
+            logger.info("✅ Stream complete!")
+            
+        except Exception as e:
+            logger.error(f"Error in stream: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            yield send_progress('error', 0, f'❌ Error: {str(e)}')
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+@app.route('/api/calculate-citation-pagerank-stream', methods=['POST'])
+def calculate_citation_pagerank_stream():
+    """
+    API endpoint với real-time progress updates sử dụng Server-Sent Events
+    """
+    def generate():
+        try:
+            # Parse request data
+            data_json = request.get_json()
+            author_names = data_json.get('authors', [])
+            damping_factor = data_json.get('damping_factor', 0.85)
+            max_iterations = data_json.get('max_iterations', 100)
+            user_role = data_json.get('user_role', 'researcher')
+            
+            # Validation
+            if not author_names or len(author_names) == 0:
+                yield f"data: {json.dumps({'status': 'error', 'error': 'Please provide at least one author name'})}\n\n"
+                return
+            
+            if not sch:
+                yield f"data: {json.dumps({'status': 'error', 'error': 'Semantic Scholar API not available'})}\n\n"
+                return
+            
+            # 🎯 BƯỚC 1: Khởi tạo (0-5%)
+            yield f"data: {json.dumps({'status': 'starting', 'progress': 0, 'message': '🚀 Initializing...', 'stage': 'init'})}\n\n"
+            
+            all_papers = {}
+            citation_graph = {}
+            total_authors = len(author_names)
+            
+            # 🎯 BƯỚC 2: Fetch papers từ authors (5-35%)
+            yield f"data: {json.dumps({'status': 'fetching_authors', 'progress': 5, 'message': f'👤 Fetching papers from {total_authors} authors...', 'stage': 'authors'})}\n\n"
+            
+            for idx, author_name in enumerate(author_names, 1):
+                progress = 5 + int((idx / total_authors) * 30)  # 5% -> 35%
+                
+                yield f"data: {json.dumps({'status': 'fetching_author', 'progress': progress, 'message': f'[{idx}/{total_authors}] 🔍 Searching: {author_name}', 'current_author': author_name, 'author_index': idx, 'total_authors': total_authors})}\n\n"
+                
+                papers = search_papers_by_author(author_name, limit=10)
+                
+                logger.info(f"   ✅ Found {len(papers)} papers from {author_name}")
+                
+                for paper in papers:
+                    paper_id = paper['paperId']
+                    if paper_id not in all_papers:
+                        all_papers[paper_id] = paper
+                        citation_graph[paper_id] = []
+                
+                yield f"data: {json.dumps({'status': 'author_complete', 'progress': progress, 'message': f'✅ Found {len(papers)} papers from {author_name}', 'papers_found': len(papers)})}\n\n"
+            
+            # 🎯 BƯỚC 3: Fetch citations (35-85%)
+            paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
+            total_papers = len(paper_ids_to_process)
+            
+            yield f"data: {json.dumps({'status': 'fetching_citations', 'progress': 35, 'message': f'🔗 Fetching citations for {total_papers} papers...', 'stage': 'citations', 'total_papers': total_papers})}\n\n"
+            
+            for idx, paper_id in enumerate(paper_ids_to_process, 1):
+                progress = 35 + int((idx / total_papers) * 50)  # 35% -> 85%
+                paper_title = all_papers[paper_id]['title'][:50]
+                
+                yield f"data: {json.dumps({'status': 'fetching_citation', 'progress': progress, 'message': f'[{idx}/{total_papers}] 📄 {paper_title}...', 'current_paper': idx, 'total_papers': total_papers})}\n\n"
+                
+                citations = get_paper_citations(paper_id, max_citations=MAX_CITATIONS_PER_PAPER)
+                
+                logger.info(f"   ✅ {len(citations)} citations")
+                
+                for cited_paper in citations:
+                    cited_id = cited_paper['paperId']
+                    if cited_id not in all_papers:
+                        all_papers[cited_id] = cited_paper
+                        citation_graph[cited_id] = []
+                    
+                    if paper_id not in citation_graph[cited_id]:
+                        citation_graph[cited_id].append(paper_id)
+            
+            # 🎯 BƯỚC 4: Calculate PageRank (85-95%)
+            yield f"data: {json.dumps({'status': 'calculating', 'progress': 85, 'message': '🧮 Calculating PageRank algorithm...', 'stage': 'calculation'})}\n\n"
+            
+            results, residuals = calculate_pagerank(all_papers, citation_graph, damping_factor, max_iterations)
+            
+            # 🎯 BƯỚC 5: Prepare results (95-100%)
+            yield f"data: {json.dumps({'status': 'preparing', 'progress': 95, 'message': '📊 Preparing visualization data...', 'stage': 'finalize'})}\n\n"
+            
+            # Prepare network data
+            nodes = []
+            edges = []
+            
+            for paper_id, paper in all_papers.items():
+                nodes.append({
+                    'id': paper_id,
+                    'label': paper['title'][:50] + '...' if len(paper['title']) > 50 else paper['title'],
+                    'citationCount': paper['citationCount']
+                })
+            
+            for source_id, targets in citation_graph.items():
+                for target_id in targets:
+                    edges.append({'from': source_id, 'to': target_id})
+            
+            # Get permissions
+            permissions = USER_ROLES.get(user_role, USER_ROLES['researcher'])['permissions']
+            
+            # Build response
+            response_data = {
+                'status': 'complete',
+                'progress': 100,
+                'message': '✅ Complete! Analysis finished successfully.',
+                'results': results[:50],
+                'network': {'nodes': nodes, 'edges': edges},
+                'stats': {
+                    'totalPapers': len(all_papers),
+                    'totalCitations': sum(len(targets) for targets in citation_graph.values())
+                },
+                'userRole': user_role,
+                'permissions': permissions
+            }
+            
+            # Add network metrics if permitted
+            if permissions.get('view_network_metrics', False):
+                network_metrics = calculate_network_metrics_simple(all_papers, citation_graph, results)
+                response_data['networkMetrics'] = network_metrics
+            
+            # 🎯 BƯỚC 6: Send final result
+            yield f"data: {json.dumps(response_data)}\n\n"
+            
+            logger.info(f"✅ Stream completed successfully")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in stream: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'status': 'error', 'error': str(e), 'progress': 0})}\n\n"
+    
+    # Return SSE response
+    return Response(
+        stream_with_context(generate()), 
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
