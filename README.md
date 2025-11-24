@@ -79,6 +79,55 @@ This system uses **Semantic Scholar API** which provides:
 - Author information
 - Publication metadata
 
+## ⚠️ LƯU Ý QUAN TRỌNG VỀ API KEY
+
+### Giới hạn khi sử dụng API Key mặc định
+
+Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar API không có API key đăng ký**. Điều này có nghĩa là bạn sẽ gặp phải các giới hạn sau:
+
+- **100 requests/5 phút** cho public API
+- Nếu vượt quá giới hạn, bạn sẽ nhận được lỗi `429 Too Many Requests`
+- Hệ thống sẽ tự động chờ và thử lại, nhưng quá trình xử lý sẽ chậm hơn
+
+Để có trải nghiệm tốt hơn, có 3 cách để bạn thực hiện:
+### Cách 1:
+1. **Đăng ký API key miễn phí** tại: https://www.semanticscholar.org/product/api#api-key-form
+   - Với API key: **5000 requests/5 phút**
+   - Tốc độ xử lý nhanh hơn và ổn định hơn
+
+2. **Cấu hình API key** trong code:
+   
+   Mở file `app.py` và thêm API key của bạn:
+   
+   ```python
+   # Tìm dòng này trong app.py
+   API_KEY = os.getenv('SEMANTIC_SCHOLAR_API_KEY')  # Default
+   
+   # Thay đổi thành
+   API_KEY = = "YOUR_API_KEY_HERE"
+   ```
+
+3. **Hoặc sử dụng biến môi trường** (khuyến nghị):
+   
+   ```bash
+   # Windows
+   set SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
+   python app.py
+   
+   # macOS/Linux
+   export SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
+   python app.py
+   ```
+### Cách 2: Contact me and return to Cách 1 :))
+### Cách 3: Sử dụng anonymous API key được config mặc định trong source.
+#### 💡 Tips khi sử dụng API mặc định
+
+- **Giảm số lượng tác giả/bài báo** trong một lần phân tích (2-3 inputs)
+- **Tránh chạy nhiều request liên tiếp** trong thời gian ngắn
+- **Chờ 5 phút** nếu gặp lỗi rate limit trước khi thử lại
+- **Sử dụng cache** - hệ thống đã tự động cache kết quả để giảm số lần gọi API
+
+
 ## 🚀 Hướng dẫn cài đặt và chạy
 
 ### Bước 1: Clone Repository
@@ -189,16 +238,19 @@ citation-network-pagerank-system/
 └── arn_venv/                 # Python virtual environment (local)
 ```
 
-## ✅ Các lỗi đã được sửa
+## ✅ Update fix logs (24/11/2025)
 
-- [x] Fix lỗi không hiển thị Interactive Graph Visualization khi chạy mode single algorithm đối với 2 thuật toán Weighted PageRank và HITS
-- [x] Fix lỗi không hiển thị Interactive Graph Visualization khi chạy mode multi algorithm khi có 1 trong 2 thuật toán đã nêu
-- [x] Fix lỗi giao diện bị overlap khi so sánh Performance metric
+- [x] Fix bug không hiển thị Interactive Graph Visualization khi chạy mode single algorithm đối với 2 thuật toán Weighted PageRank và HITS
+- [x] Fix bug không hiển thị Interactive Graph Visualization khi chạy mode multi algorithm khi có 1 trong 2 thuật toán đã nêu
+- [x] Fix bug giao diện bị overlap khi so sánh Performance metric
 - [x] Add Convergence Curve vào output DS role
-- [x] Fix lỗi state không được clear khi change role
-- [x] Fix lỗi So sánh multi algorithms - Paper analyzed không được trả về
-- [x] Fix lỗi Convergence Curve không được backend trả về đúng cách
-- [x] Fix lỗi hiển thị cho Convergence Curve
+- [x] Fix bug state không được clear khi change role
+- [x] Fix bug So sánh multi algorithms - Paper analyzed không được trả về
+- [x] Fix bug Convergence Curve không được backend trả về đúng cách
+- [x] Fix bug hiển thị cho Convergence Curve
+
+## TODO Fix logs 
+- [ ] Fix bug thanh tiến trình không hoạt động khi Run so sánh Multi Algorithms (Don't worry, be patient. Backend still working 'til the end).
 
 ## Troubleshooting
 
@@ -239,8 +291,11 @@ npm install
 - **Võ Thị Vân Anh** — Postgraduate Student (ID: 2470283)
 
 ## Acknowledgments
-- Tác giả xin chân thành cảm ơn CN. Lê Nho Hân và CN. Vũ Trần Thanh Hương đã có những góp ý quý báu và những nhận xét sâu sắc trong suốt quá trình nghiên cứu và thực hiện đồ án.
+- Tác giả xin chân thành cảm ơn CN. Lê Nho Hãn và CN. Vũ Trần Thanh Hương đã có những góp ý quý báu và những nhận xét sâu sắc trong suốt quá trình nghiên cứu và thực hiện đồ án.
 - [Semantic Scholar API](https://www.semanticscholar.org/product/api) - Cung cấp dữ liệu bài báo học thuật
 - [PageRank Algorithm](https://en.wikipedia.org/wiki/PageRank) - Larry Page & Sergey Brin
 - [HITS Algorithm](https://en.wikipedia.org/wiki/HITS_algorithm) - Jon Kleinberg
+
+## Contact
+Email: phhung.sdh241@hcmut.edu.vn • vtvanh.sdh241@hcmut.edu.vn
 ---
