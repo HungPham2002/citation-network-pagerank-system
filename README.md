@@ -2,7 +2,7 @@
 
 Hệ thống phân tích mạng trích dẫn học thuật sử dụng thuật toán PageRank và các thuật toán ranking khác để xác định các bài báo và tác giả có ảnh hưởng nhất dựa trên mô hình trích dẫn.
 
-🚀 Live Demo [Here](https://citation-network-frontend.onrender.com)
+🚀 Live Demo [Here](https://citation-network-frontend.onrender.com) (Free host nên resources hạn chế, tốt hơn nên chạy local, thanks :D)
 ## 🌟 Tính năng chính 🌟
 
 ### 1. **Phân tích theo Tác giả (Author-Based Analysis)**
