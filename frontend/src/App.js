@@ -486,7 +486,6 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Read SSE stream (phần còn lại giữ nguyên)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

@@ -127,10 +127,36 @@ def get_paper_citations(paper_id, max_citations=20):
         time.sleep(2)
         return []
 
+def get_paper_references(paper_id, max_references=None):
+    """
+    Lấy danh sách references (papers mà paper này cite đến)
+    Specifically for checking cross-citations between input papers
+    """
+    try:
+        time.sleep(API_DELAY)
+        paper = sch.get_paper(paper_id, fields=['references', 'references.paperId', 'references.title'])
+        references = paper.references[:max_references] if hasattr(paper, 'references') and paper.references else []
+        
+        result = []
+        for ref_paper in references:
+            if hasattr(ref_paper, 'paperId') and ref_paper.paperId:
+                result.append({
+                    'paperId': ref_paper.paperId,
+                    'title': ref_paper. title if hasattr(ref_paper, 'title') else 'Unknown'
+                })
+        return result
+    except Exception as e:
+        logger.error(f"❌ Error getting references for {paper_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        time.sleep(2)
+        return []
+
 def build_citation_network(author_names, max_papers_per_author=10):
     """Xây dựng citation network từ danh sách tác giả"""
     all_papers = {}
     citation_graph = {}
+    author_paper_ids = set()  # ✅ Track papers của authors (giống input_paper_ids)
     
     logger.info(f"👤 Fetching papers from {len(author_names)} authors...")
     for idx, author_name in enumerate(author_names, 1):
@@ -143,16 +169,20 @@ def build_citation_network(author_names, max_papers_per_author=10):
             if paper_id not in all_papers:
                 all_papers[paper_id] = paper
                 citation_graph[paper_id] = []
+                author_paper_ids.add(paper_id)  # ✅ Đánh dấu là paper của author
     
-    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
-    logger.info(f"🔗 Fetching citations for {len(paper_ids_to_process)} papers...")
-    logger.info(f"⏱️  Estimated time: ~{len(paper_ids_to_process) * 1.2:.0f} seconds")
+    logger.info(f"✅ Found {len(author_paper_ids)} papers from {len(author_names)} authors")
+    
+    # ============= BƯỚC 2: FETCH CITING PAPERS =============
+    paper_ids_to_process = list(author_paper_ids)[:MAX_PAPERS_TO_PROCESS]
+    logger. info(f"🔗 Fetching papers that cite author papers...")
+    logger.info(f"⏱️  Estimated time: ~{len(paper_ids_to_process) * 1.2:. 0f} seconds")
     
     for idx, paper_id in enumerate(paper_ids_to_process, 1):
         logger.info(f"[{idx}/{len(paper_ids_to_process)}] Citations: {all_papers[paper_id]['title'][:50]}...")
         citations = get_paper_citations(paper_id, max_citations=MAX_CITATIONS_PER_PAPER)
         
-        logger.info(f"   ✅ {len(citations)} citations")
+        logger. info(f"   ✅ {len(citations)} citations")
         for cited_paper in citations:
             cited_id = cited_paper['paperId']
             if cited_id not in all_papers:
@@ -162,7 +192,39 @@ def build_citation_network(author_names, max_papers_per_author=10):
             if paper_id not in citation_graph[cited_id]:
                 citation_graph[cited_id].append(paper_id)
     
-    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
+    # ============= BƯỚC 3: KIỂM TRA CROSS-CITATIONS GIỮA AUTHOR PAPERS =============
+    logger. info(f"🔗 Checking cross-citations between {len(author_paper_ids)} author papers...")
+    
+    cross_citation_count = 0
+    for author_paper_id in author_paper_ids:
+        try:
+            # ✅ LẤY TẤT CẢ REFERENCES
+            references = get_paper_references(author_paper_id, max_references=None)
+            
+            logger.info(f"   📖 Checking {len(references)} references for: {all_papers[author_paper_id]['title'][:40]}...")
+            
+            for ref in references:
+                ref_id = ref['paperId']
+                
+                # ✅ Nếu reference này CŨNG là paper của author → tạo edge
+                if ref_id in author_paper_ids:
+                    if ref_id not in citation_graph[author_paper_id]:
+                        citation_graph[author_paper_id].append(ref_id)
+                        cross_citation_count += 1
+                        logger. info(f"   ✅ Cross-citation: {all_papers[author_paper_id]['title'][:30]} → {all_papers[ref_id]['title'][:30]}")
+        except Exception as e:
+            logger. error(f"❌ Error checking cross-citations for {author_paper_id}: {str(e)}")
+            import traceback
+            logger.error(traceback. format_exc())
+            continue
+    
+    logger.info(f"✅ Found {cross_citation_count} cross-citations between author papers")
+    
+    total_edges = sum(len(v) for v in citation_graph. values())
+    logger.info(f"✅ Network complete:")
+    logger.info(f"   📄 {len(all_papers)} papers ({len(author_paper_ids)} author papers + {len(all_papers) - len(author_paper_ids)} citing)")
+    logger.info(f"   🔗 {total_edges} citation edges")
+    
     return all_papers, citation_graph
 
 def search_paper_by_title(title, limit=1):
@@ -252,12 +314,17 @@ def get_paper_by_doi(identifier):
         return None
 
 def build_citation_network_from_papers(paper_identifiers, max_citations=20, input_type='doi'):
-    """Xây dựng citation network từ danh sách papers"""
+    """
+    Xây dựng citation network từ danh sách input papers
+    Focus: Papers cite ĐẾN input papers (thể hiện influence)
+    """
     all_papers = {}
     citation_graph = {}
+    input_paper_ids = set()  # ✅ Track input papers
     
-    logger.info(f"📚 Searching for {len(paper_identifiers)} papers by {input_type.upper()}...")
+    logger.info(f"📚 Searching for {len(paper_identifiers)} input papers by {input_type. upper()}...")
     
+    # ============= BƯỚC 1: Lấy INPUT PAPERS =============
     for idx, identifier in enumerate(paper_identifiers, 1):
         if input_type == 'doi':
             logger.info(f"[{idx}/{len(paper_identifiers)}] Looking up DOI: {identifier}")
@@ -268,7 +335,8 @@ def build_citation_network_from_papers(paper_identifiers, max_citations=20, inpu
                 if paper_id not in all_papers:
                     all_papers[paper_id] = paper
                     citation_graph[paper_id] = []
-                    logger.info(f"   ✅ {paper['title'][:60]}")
+                    input_paper_ids.add(paper_id)  # ✅ Đánh dấu input paper
+                    logger.info(f"   ✅ Input paper: {paper['title'][:60]}")
             else:
                 logger.warning(f"   ❌ Paper not found for DOI: {identifier}")
         else:
@@ -281,34 +349,74 @@ def build_citation_network_from_papers(paper_identifiers, max_citations=20, inpu
                 if paper_id not in all_papers:
                     all_papers[paper_id] = paper
                     citation_graph[paper_id] = []
-                    logger.info(f"   ✅ {paper['title'][:60]}")
+                    input_paper_ids.add(paper_id)  # ✅ Đánh dấu input paper
+                    logger. info(f"   ✅ Input paper: {paper['title'][:60]}")
             else:
                 logger.warning(f"   ❌ Not found: {identifier[:60]}")
     
     if len(all_papers) == 0:
-        logger.error("❌ No papers found!")
+        logger.error("❌ No input papers found!")
         return all_papers, citation_graph
     
-    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
-    logger.info(f"🔗 Fetching citations for {len(paper_ids_to_process)} papers...")
+    logger.info(f"✅ Found {len(input_paper_ids)} input papers")
+    
+    # ============= BƯỚC 2: FETCH CITATIONS của INPUT PAPERS =============
+    # Lấy papers CITE ĐẾN input papers (thể hiện influence)
+    
+    paper_ids_to_process = list(input_paper_ids)[:MAX_PAPERS_TO_PROCESS]
+    logger.info(f"🔗 Fetching papers that cite input papers...")
     logger.info(f"⏱️  Estimated time: ~{len(paper_ids_to_process) * 1.2:.0f} seconds")
     
     for idx, paper_id in enumerate(paper_ids_to_process, 1):
-        logger.info(f"[{idx}/{len(paper_ids_to_process)}] Citations: {all_papers[paper_id]['title'][:50]}...")
-        citations = get_paper_citations(paper_id, max_citations=max_citations)
+        paper_title = all_papers[paper_id]['title'][:50]
+        logger.info(f"[{idx}/{len(paper_ids_to_process)}] Fetching citations of: {paper_title}...")
         
-        logger.info(f"   ✅ {len(citations)} citations")
-        for cited_paper in citations:
-            cited_id = cited_paper['paperId']
-            if cited_id not in all_papers:
-                all_papers[cited_id] = cited_paper
-                citation_graph[cited_id] = []
+        # Lấy papers cite ĐẾN paper này
+        citations = get_paper_citations(paper_id, max_citations=max_citations)
+        logger.info(f"   ✅ {len(citations)} papers cite this input paper")
+        
+        for citing_paper in citations:
+            citing_id = citing_paper['paperId']
             
-            if paper_id not in citation_graph[cited_id]:
-                citation_graph[cited_id].append(paper_id)
+            # Thêm citing paper vào network
+            if citing_id not in all_papers:
+                all_papers[citing_id] = citing_paper
+                citation_graph[citing_id] = []
+            
+            # ✅ Edge: citing_paper → input_paper
+            # (citing_paper cite input_paper)
+            if paper_id not in citation_graph[citing_id]:
+                citation_graph[citing_id].append(paper_id)
     
-    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
-    return all_papers, citation_graph
+    # ============= BƯỚC 3: KIỂM TRA CROSS-CITATIONS GIỮA INPUT PAPERS =============
+    # Kiểm tra xem input papers có cite nhau không
+
+    logger.info(f"🔗 Checking cross-citations between {len(input_paper_ids)} input papers...")
+
+    cross_citation_count = 0
+    for input_paper_id in input_paper_ids:
+        try:
+            # ✅ SỬ DỤNG HÀM MỚI get_paper_references()
+            references = get_paper_references(input_paper_id, max_references=None)
+            
+            logger.info(f"   📖 Checking {len(references)} references for: {all_papers[input_paper_id]['title'][:40]}...")
+            
+            for ref in references:
+                ref_id = ref['paperId']
+                
+                # ✅ Nếu reference này CŨNG là input paper → tạo edge
+                if ref_id in input_paper_ids:
+                    if ref_id not in citation_graph[input_paper_id]:
+                        citation_graph[input_paper_id].append(ref_id)
+                        cross_citation_count += 1
+                        logger.info(f"   ✅ Cross-citation: {all_papers[input_paper_id]['title'][:30]} → {all_papers[ref_id]['title'][:30]}")
+        except Exception as e:
+            logger.error(f"❌ Error checking cross-citations for {input_paper_id}: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+
+    logger.info(f"✅ Found {cross_citation_count} cross-citations between input papers")
 
 
 def calculate_pagerank(papers, citation_graph, damping_factor=0.85, max_iterations=100):
@@ -649,13 +757,14 @@ def build_citation_network_with_progress(author_names, max_papers_per_author=10)
     """Xây dựng citation network với progress tracking"""
     all_papers = {}
     citation_graph = {}
+    author_paper_ids = set()  # ✅ Track papers của authors
     
     total_authors = len(author_names)
     yield send_progress('fetching_authors', 5, f'📚 Fetching papers from {total_authors} authors...')
     
     logger.info(f"👤 Fetching papers from {total_authors} authors...")
     for idx, author_name in enumerate(author_names, 1):
-        progress = 5 + int((idx / total_authors) * 25)  # 5% -> 30%
+        progress = 5 + int((idx / total_authors) * 20)  # 5% -> 25%
         yield send_progress(
             'fetching_author', 
             progress, 
@@ -668,12 +777,13 @@ def build_citation_network_with_progress(author_names, max_papers_per_author=10)
         logger.info(f"[{idx}/{total_authors}] Searching: {author_name}")
         papers = search_papers_by_author(author_name, limit=max_papers_per_author)
         
-        logger.info(f"   ✅ Found {len(papers)} papers")
+        logger. info(f"   ✅ Found {len(papers)} papers")
         for paper in papers:
             paper_id = paper['paperId']
             if paper_id not in all_papers:
                 all_papers[paper_id] = paper
                 citation_graph[paper_id] = []
+                author_paper_ids.add(paper_id)  # ✅ Đánh dấu
         
         yield send_progress(
             'author_complete', 
@@ -681,28 +791,28 @@ def build_citation_network_with_progress(author_names, max_papers_per_author=10)
             f'✅ Found {len(papers)} papers from {author_name}'
         )
     
-    # Fetch citations
-    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
+    # ============= BƯỚC 2: FETCH CITING PAPERS =============
+    paper_ids_to_process = list(author_paper_ids)[:MAX_PAPERS_TO_PROCESS]
     total_papers = len(paper_ids_to_process)
     
     yield send_progress(
         'fetching_citations', 
         30, 
-        f'🔗 Fetching citations for {total_papers} papers...',
+        f'🔗 Fetching papers citing {total_papers} author papers...',
         total_papers=total_papers
     )
     
-    logger.info(f"🔗 Fetching citations for {total_papers} papers...")
+    logger. info(f"🔗 Fetching papers that cite author papers...")
     logger.info(f"⏱️  Estimated time: ~{total_papers * 1.2:.0f} seconds")
     
     for idx, paper_id in enumerate(paper_ids_to_process, 1):
-        progress = 30 + int((idx / total_papers) * 50)  # 30% -> 80%
+        progress = 30 + int((idx / total_papers) * 35)  # 30% -> 65%
         paper_title = all_papers[paper_id]['title'][:50]
         
         yield send_progress(
             'fetching_citation',
             progress,
-            f'[{idx}/{total_papers}] 📄 {paper_title}...',
+            f'[{idx}/{total_papers}] 📄 {paper_title}.. .',
             current_paper=idx,
             total_papers=total_papers
         )
@@ -720,9 +830,38 @@ def build_citation_network_with_progress(author_names, max_papers_per_author=10)
             if paper_id not in citation_graph[cited_id]:
                 citation_graph[cited_id].append(paper_id)
     
-    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
+    # ============= BƯỚC 3: CHECK CROSS-CITATIONS =============
+    yield send_progress('checking_cross_citations', 70, '🔗 Checking cross-citations between author papers...')
+    logger.info(f"🔗 Checking cross-citations between {len(author_paper_ids)} author papers...")
     
-    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers')
+    cross_citation_count = 0
+    for author_paper_id in author_paper_ids:
+        try:
+            # ✅ LẤY TẤT CẢ REFERENCES
+            references = get_paper_references(author_paper_id, max_references=None)
+            
+            logger.info(f"   📖 Checking {len(references)} references for: {all_papers[author_paper_id]['title'][:40]}...")
+            
+            for ref in references:
+                ref_id = ref['paperId']
+                
+                if ref_id in author_paper_ids:
+                    if ref_id not in citation_graph[author_paper_id]:
+                        citation_graph[author_paper_id].append(ref_id)
+                        cross_citation_count += 1
+                        logger. info(f"   ✅ Cross-citation found between author papers")
+        except Exception as e:
+            logger.error(f"❌ Error checking cross-citations: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+    
+    logger.info(f"✅ Found {cross_citation_count} cross-citations between author papers")
+    
+    total_edges = sum(len(v) for v in citation_graph.values())
+    logger.info(f"✅ Network complete: {len(all_papers)} papers, {total_edges} edges")
+    
+    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers ({len(author_paper_ids)} author papers + {len(all_papers) - len(author_paper_ids)} citing)')
     yield (all_papers, citation_graph)
 
 
@@ -730,14 +869,16 @@ def build_citation_network_from_papers_with_progress(paper_identifiers, max_cita
     """Xây dựng citation network từ papers với progress tracking"""
     all_papers = {}
     citation_graph = {}
+    input_paper_ids = set()
     
     total_identifiers = len(paper_identifiers)
-    yield send_progress('searching_papers', 5, f'📚 Searching for {total_identifiers} papers by {input_type.upper()}...')
+    yield send_progress('searching_papers', 5, f'📚 Searching for {total_identifiers} input papers by {input_type.upper()}...')
     
-    logger.info(f"📚 Searching for {total_identifiers} papers by {input_type.upper()}...")
+    logger.info(f"📚 Searching for {total_identifiers} input papers by {input_type.upper()}...")
     
+    # ============= BƯỚC 1: LẤY INPUT PAPERS =============
     for idx, identifier in enumerate(paper_identifiers, 1):
-        progress = 5 + int((idx / total_identifiers) * 25)  # 5% -> 30%
+        progress = 5 + int((idx / total_identifiers) * 20)  # 5% -> 25%
         
         if input_type == 'doi':
             yield send_progress('looking_up_doi', progress, f'[{idx}/{total_identifiers}] 🔍 Looking up DOI: {identifier[:40]}...')
@@ -749,8 +890,9 @@ def build_citation_network_from_papers_with_progress(paper_identifiers, max_cita
                 if paper_id not in all_papers:
                     all_papers[paper_id] = paper
                     citation_graph[paper_id] = []
+                    input_paper_ids.add(paper_id)
                     yield send_progress('paper_found', progress, f'✅ {paper["title"][:60]}')
-                    logger.info(f"   ✅ {paper['title'][:60]}")
+                    logger.info(f"   ✅ Input paper: {paper['title'][:60]}")
             else:
                 yield send_progress('paper_not_found', progress, f'❌ Paper not found for DOI: {identifier[:40]}')
                 logger.warning(f"   ❌ Paper not found for DOI: {identifier}")
@@ -765,27 +907,28 @@ def build_citation_network_from_papers_with_progress(paper_identifiers, max_cita
                 if paper_id not in all_papers:
                     all_papers[paper_id] = paper
                     citation_graph[paper_id] = []
+                    input_paper_ids.add(paper_id)
                     yield send_progress('paper_found', progress, f'✅ {paper["title"][:60]}')
-                    logger.info(f"   ✅ {paper['title'][:60]}")
+                    logger.info(f"   ✅ Input paper: {paper['title'][:60]}")
             else:
                 yield send_progress('paper_not_found', progress, f'❌ Not found: {identifier[:60]}')
                 logger.warning(f"   ❌ Not found: {identifier[:60]}")
     
     if len(all_papers) == 0:
-        logger.error("❌ No papers found!")
-        yield send_progress('error', 0, '❌ No papers found!')
+        logger.error("❌ No input papers found!")
+        yield send_progress('error', 0, '❌ No input papers found!')
         return
     
-    # Fetch citations
-    paper_ids_to_process = list(all_papers.keys())[:MAX_PAPERS_TO_PROCESS]
+    # ============= BƯỚC 2: FETCH CITING PAPERS =============
+    paper_ids_to_process = list(input_paper_ids)[:MAX_PAPERS_TO_PROCESS]
     total_papers = len(paper_ids_to_process)
     
-    yield send_progress('fetching_citations', 30, f'🔗 Fetching citations for {total_papers} papers...')
-    logger.info(f"🔗 Fetching citations for {total_papers} papers...")
+    yield send_progress('fetching_citations', 30, f'🔗 Fetching papers citing {total_papers} input papers...')
+    logger.info(f"🔗 Fetching papers that cite input papers...")
     logger.info(f"⏱️  Estimated time: ~{total_papers * 1.2:.0f} seconds")
     
     for idx, paper_id in enumerate(paper_ids_to_process, 1):
-        progress = 30 + int((idx / total_papers) * 50)  # 30% -> 80%
+        progress = 30 + int((idx / total_papers) * 40)  # 30% -> 70%
         paper_title = all_papers[paper_id]['title'][:50]
         
         yield send_progress(
@@ -796,23 +939,52 @@ def build_citation_network_from_papers_with_progress(paper_identifiers, max_cita
             total_papers=total_papers
         )
         
-        logger.info(f"[{idx}/{total_papers}] Citations: {paper_title}...")
+        logger.info(f"[{idx}/{total_papers}] Citations of: {paper_title}...")
         citations = get_paper_citations(paper_id, max_citations=max_citations)
         
-        logger.info(f"   ✅ {len(citations)} citations")
-        for cited_paper in citations:
-            cited_id = cited_paper['paperId']
-            if cited_id not in all_papers:
-                all_papers[cited_id] = cited_paper
-                citation_graph[cited_id] = []
+        logger.info(f"   ✅ {len(citations)} papers cite this input paper")
+        for citing_paper in citations:
+            citing_id = citing_paper['paperId']
+            if citing_id not in all_papers:
+                all_papers[citing_id] = citing_paper
+                citation_graph[citing_id] = []
             
-            if paper_id not in citation_graph[cited_id]:
-                citation_graph[cited_id].append(paper_id)
+            if paper_id not in citation_graph[citing_id]:
+                citation_graph[citing_id].append(paper_id)
     
-    logger.info(f"✅ Network complete: {len(all_papers)} papers, {sum(len(v) for v in citation_graph.values())} citations")
-    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers')
-    yield (all_papers, citation_graph)
+    # ============= BƯỚC 3: CHECK CROSS-CITATIONS =============
+    yield send_progress('checking_cross_citations', 75, '🔗 Checking cross-citations between input papers...')
+    logger.info(f"🔗 Checking cross-citations between {len(input_paper_ids)} input papers...")
 
+    cross_citation_count = 0
+    for input_paper_id in input_paper_ids:
+        try:
+            # ✅ SỬ DỤNG HÀM MỚI get_paper_references()
+            references = get_paper_references(input_paper_id, max_references=None)
+            
+            logger.info(f"   📖 Checking {len(references)} references for: {all_papers[input_paper_id]['title'][:40]}...")
+            
+            for ref in references:
+                ref_id = ref['paperId']
+                
+                if ref_id in input_paper_ids:
+                    if ref_id not in citation_graph[input_paper_id]:
+                        citation_graph[input_paper_id].append(ref_id)
+                        cross_citation_count += 1
+                        logger. info(f"   ✅ Cross-citation found between input papers")
+        except Exception as e:
+            logger.error(f"❌ Error checking cross-citations: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+
+    logger.info(f"✅ Found {cross_citation_count} cross-citations between input papers")
+    
+    total_edges = sum(len(v) for v in citation_graph.values())
+    logger.info(f"✅ Network complete: {len(all_papers)} papers, {total_edges} edges")
+    
+    yield send_progress('network_complete', 80, f'✅ Network built: {len(all_papers)} papers ({len(input_paper_ids)} input + {len(all_papers) - len(input_paper_ids)} citing)')
+    yield (all_papers, citation_graph)
 # ============= API ENDPOINTS =============
 @app.route('/', methods=['GET'])
 def home():
