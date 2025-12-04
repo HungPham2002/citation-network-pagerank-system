@@ -251,7 +251,7 @@ citation-network-pagerank-system/
 - [x] Fix bug hiển thị cho Convergence Curve
 
 ## TODO Fix logs 
-- [ ] Bổ sung logic fetch references (papers mà input paper hiện tại cite đến) 
+- [ ] Bổ sung logic kiểm tra cross-reference giữa các input papers.
 - [ ] Fix bug thanh tiến trình không hoạt động khi Run so sánh Multi Algorithms (Don't worry, be patient. Backend still working 'til the end).
 
 ## Troubleshooting
