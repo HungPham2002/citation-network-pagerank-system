@@ -16,37 +16,67 @@ Hệ thống phân tích mạng trích dẫn học thuật sử dụng thuật t
 - Phân tích mối quan hệ trích dẫn giữa các bài báo cụ thể
 - Xếp hạng bài báo theo độ quan trọng
 
-### 3. **Nhiều Thuật toán Ranking**
+### 3. **Cross-Citations Detection & Visualization**
+
+Tự động phát hiện và hiển thị mối quan hệ trích dẫn **giữa các input papers/author papers**.
+
+### 4. **Nhiều Thuật toán Ranking**
 - **PageRank**: Thuật toán gốc của Google để xếp hạng trang web
 - **Weighted PageRank**: Phiên bản PageRank có trọng số dựa trên số lần trích dẫn
 - **HITS (Hyperlink-Induced Topic Search)**: Tính toán Hub và Authority scores
 
-### 4. **So sánh Thuật toán (Multi-Algorithm Comparison)**
+### 5. **So sánh Thuật toán (Multi-Algorithm Comparison)**
 - Chạy và so sánh nhiều thuật toán cùng lúc
-- Tính toán Spearman Rank Correlation
-- Phân tích Top-K Overlap
-- So sánh Performance metrics và Convergence curves
+- Correlation Analysis:
+  - Spearman Rank Correlation giữa các thuật toán
+  - Đo độ tương đồng trong ranking results
+- Performance Metrics:
+  - Computation time comparison
+  - Iterations to convergence
+  - Papers analyzed count
+- Convergence Curves:
+  - Residual tracking theo iterations
+  - So sánh tốc độ hội tụ của từng thuật toán
 
-### 5. **Trực quan hóa Mạng (Interactive Graph Visualization)**
+### 6. **Trực quan hóa Mạng (Interactive Graph Visualization)**
 - Biểu đồ mạng tương tác 2D với D3.js
 - Hiển thị nodes (bài báo) và edges (trích dẫn)
 - Zoom, pan và tương tác với từng node
 - Màu sắc và kích thước node phản ánh độ quan trọng
 
-### 6. **Network Metrics**
+### 7. **Network Metrics**
 - Density, Average Degree, Clustering Coefficient
 - Hub và Authority identification
 - Degree Distribution analysis
 - Strongly connected nodes, Dangling nodes
 
-### 7. **Convergence Analysis**
+### 8. **Convergence Analysis**
 - Convergence curves cho từng thuật toán
 - Theo dõi quá trình hội tụ qua các iterations
 - Residual tracking
 
-### 8. **Role-Based Access Control**
-- **Researcher**: Chức năng cơ bản (ranking results, basic visualization)
-- **Data Scientist**: Full access với performance comparison, network metrics và convergence analysis
+### 9. **Export Data** 
+Export toàn bộ kết quả phân tích ra file để sử dụng ngoại tuyến hoặc báo cáo.
+
+**Formats hỗ trợ:** JSON và CSV
+
+### 10.  **Real-Time Progress Tracking**
+- Server-Sent Events (SSE) cho real-time updates
+- Progress bar với các stages:
+- Live status messages với paper titles đang xử lý
+
+### 11. **Role-Based Access Control (RBAC)**
+| Tính năng / Quyền | Researcher 🔬 | Data Scientist 📊 |
+|---|:---:|:---:|
+| View PageRank results (top-50 papers) | ✅ | ✅ |
+| View Network Graph visualization | ✅ | ✅ |
+| View Basic Stats (total papers, total citations) | ✅ | ✅ |
+| Network Metrics (density, degree distribution) | ❌ | ✅ |
+| Export Data (JSON/CSV) | ❌ | ✅ |
+| Advanced Analysis (convergence curves, correlation) | ❌ | ✅ |
+| Customize Parameters (damping factor, iterations) | ❌ | ✅ |
+| Multi-Algorithm Comparison (PageRank/HITS/Weighted) | ❌ | ✅ |
+
 
 ## 🛠️ Công nghệ sử dụng
 
@@ -239,6 +269,14 @@ citation-network-pagerank-system/
 └── arn_venv/                 # Python virtual environment (local)
 ```
 
+## ✅ Update fix logs (04/12/2025)
+
+- [x] **Bổ sung logic kiểm tra cross-citations giữa các input papers** 🎉
+  - Tự động phát hiện quan hệ trích dẫn giữa input papers (Paper Mode)
+  - Tự động phát hiện quan hệ trích dẫn giữa author papers (Author Mode)
+  - Fetch TẤT CẢ references (không giới hạn 20) để đảm bảo chính xác
+  - Log chi tiết mỗi cross-citation được tìm thấy
+
 ## ✅ Update fix logs (24/11/2025)
 
 - [x] Fix bug không hiển thị Interactive Graph Visualization khi chạy mode single algorithm đối với 2 thuật toán Weighted PageRank và HITS
@@ -251,8 +289,8 @@ citation-network-pagerank-system/
 - [x] Fix bug hiển thị cho Convergence Curve
 
 ## TODO Fix logs 
-- [ ] Bổ sung logic kiểm tra cross-reference giữa các input papers.
 - [ ] Fix bug thanh tiến trình không hoạt động khi Run so sánh Multi Algorithms (Don't worry, be patient. Backend still working 'til the end).
+- [ ] Add filter/search functionality in results table
 
 ## Troubleshooting
 
