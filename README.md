@@ -331,7 +331,17 @@ npm install
 - **Võ Thị Vân Anh** — Postgraduate Student (ID: 2470283)
 
 ## Acknowledgments
-- Tác giả xin chân thành cảm ơn CN. Lê Nho Hãn và CN. Vũ Trần Thanh Hương đã có những góp ý quý báu và những nhận xét sâu sắc trong suốt quá trình nghiên cứu và thực hiện đồ án.
+Tác giả xin chân thành cảm ơn:
+#### **PGS.TS. Quản Thành Thơ**
+Giảng viên môn Hệ thống Thông minh - Khoa Khoa học và Kỹ thuật Máy tính, Trường ĐHBK TPHCM
+Cảm ơn Thầy đã trực tiếp hướng dẫn, định hướng phương pháp nghiên cứu, và đưa ra những nhận xét sâu sắc giúp hoàn thiện đề tài.
+
+#### **Đội ngũ hỗ trợ**
+- URA Team đã hỗ trợ: Review mockup, tham vấn kiến trúc hệ thống, và code review trong quá trình phát triển và hoàn thiện dự án.
+- Trường Đại học Bách khoa TP.HCM (HCMUT): Cung cấp môi trường học tập, trang thiết bị và nguồn tài liệu học thuật để thực hiện đề tài.
+- CN. Lê Nho Hãn và CN. Vũ Trần Thanh Hương đã có những góp ý quý báu và những nhận xét sâu sắc trong suốt quá trình nghiên cứu và thực hiện đồ án.
+
+#### **Resources & Tools**
 - [Semantic Scholar API](https://www.semanticscholar.org/product/api) - Cung cấp dữ liệu bài báo học thuật
 - [PageRank Algorithm](https://en.wikipedia.org/wiki/PageRank) - Larry Page & Sergey Brin
 - [HITS Algorithm](https://en.wikipedia.org/wiki/HITS_algorithm) - Jon Kleinberg
