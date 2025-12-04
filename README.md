@@ -90,8 +90,8 @@ Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar 
 - Nếu vượt quá giới hạn, bạn sẽ nhận được lỗi `429 Too Many Requests`
 - Hệ thống sẽ tự động chờ và thử lại, nhưng quá trình xử lý sẽ chậm hơn
 
-Để có trải nghiệm tốt hơn, có 3 cách để bạn thực hiện:
-### Cách 1:
+Để có trải nghiệm tốt hơn:
+### Thực hiện các bước dưới đây:
 1. **Đăng ký API key miễn phí** tại: https://www.semanticscholar.org/product/api#api-key-form
    - Với API key: **5000 requests/5 phút**
    - Tốc độ xử lý nhanh hơn và ổn định hơn
@@ -119,8 +119,8 @@ Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar 
    export SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
    python app.py
    ```
-### Cách 2: Contact me and return to Cách 1 :))
-### Cách 3: Sử dụng anonymous API key được config mặc định trong source.
+### Đối với các bạn Reviewer cần reproduce source code: Mình có cung cấp API Key của mình trong Báo cáo tại Chương 6, các bạn có thể lấy Key và thực hiện các bước trên nhé. 
+### Hoặc Sử dụng anonymous API key được config mặc định trong source.
 #### 💡 Tips khi sử dụng API mặc định
 
 - **Giảm số lượng tác giả/bài báo** trong một lần phân tích (2-3 inputs)
@@ -251,6 +251,7 @@ citation-network-pagerank-system/
 - [x] Fix bug hiển thị cho Convergence Curve
 
 ## TODO Fix logs 
+- [ ] Bổ sung logic fetch references (papers mà input paper hiện tại cite đến) 
 - [ ] Fix bug thanh tiến trình không hoạt động khi Run so sánh Multi Algorithms (Don't worry, be patient. Backend still working 'til the end).
 
 ## Troubleshooting
