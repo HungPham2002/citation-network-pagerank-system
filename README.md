@@ -136,7 +136,7 @@ Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar 
    API_KEY = os.getenv('SEMANTIC_SCHOLAR_API_KEY')  # Default
    
    # Thay đổi thành
-   API_KEY = = "YOUR_API_KEY_HERE"
+   API_KEY = "YOUR_API_KEY_HERE"
    ```
 
 3. **Hoặc sử dụng biến môi trường** (khuyến nghị):
