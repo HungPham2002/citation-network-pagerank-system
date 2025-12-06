@@ -150,7 +150,7 @@ Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar 
    export SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
    python app.py
    ```
-### Đối với các Reviewer cần reproduce source code: Tác giả có cung cấp API Key của trong Báo Cáo tại mục THÔNG TIN TÀI NGUYÊN DỰ ÁN, reviewer có thể lấy Key và thực hiện các bước trên nhé. 
+### Đối với các Reviewers cần reproduce source code: Tác giả có cung cấp API Key trong Báo Cáo tại mục THÔNG TIN TÀI NGUYÊN DỰ ÁN, reviewer có thể lấy Key và thực hiện các bước trên nhé. 
 ### Hoặc Sử dụng anonymous API key được config mặc định trong source.
 #### 💡 Tips khi sử dụng API mặc định
 
