@@ -30,6 +30,7 @@ Tự động phát hiện và hiển thị mối quan hệ trích dẫn **giữa
 - Correlation Analysis:
   - Spearman Rank Correlation giữa các thuật toán
   - Đo độ tương đồng trong ranking results
+  - Top-K Overlap
 - Performance Metrics:
   - Computation time comparison
   - Iterations to convergence
@@ -66,7 +67,7 @@ Export toàn bộ kết quả phân tích ra file để sử dụng ngoại tuy�
 - Live status messages với paper titles đang xử lý
 
 ### 11. **Role-Based Access Control (RBAC)**
-| Tính năng / Quyền | Researcher 🔬 | Data Scientist 📊 |
+| Tính năng / Quyền | Researcher | Data Scientist |
 |---|:---:|:---:|
 | View PageRank results (top-50 papers) | ✅ | ✅ |
 | View Network Graph visualization | ✅ | ✅ |
@@ -149,7 +150,7 @@ Hệ thống hiện tại khi bạn Rerun, chỉ sử dụng **Semantic Scholar 
    export SEMANTIC_SCHOLAR_API_KEY=your_api_key_here
    python app.py
    ```
-### Đối với các bạn Reviewer cần reproduce source code: Mình có cung cấp API Key của mình trong Báo cáo tại Chương 6, các bạn có thể lấy Key và thực hiện các bước trên nhé. 
+### Đối với các Reviewer cần reproduce source code: Tác giả có cung cấp API Key của trong Báo Cáo tại mục THÔNG TIN TÀI NGUYÊN DỰ ÁN, reviewer có thể lấy Key và thực hiện các bước trên nhé. 
 ### Hoặc Sử dụng anonymous API key được config mặc định trong source.
 #### 💡 Tips khi sử dụng API mặc định
 
@@ -268,14 +269,15 @@ citation-network-pagerank-system/
 │   └── README.md             # Create React App docs
 └── arn_venv/                 # Python virtual environment (local)
 ```
+## ✅ Update fix logs (06/12/2025)
+- [x] Fix bug hàm build network không trả về Papers và Networks khi chạy Multi Algorithm.
 
 ## ✅ Update fix logs (04/12/2025)
 
-- [x] **Bổ sung logic kiểm tra cross-citations giữa các input papers** 🎉
+- [x] **Bổ sung logic kiểm tra cross-citations giữa các input papers** 
   - Tự động phát hiện quan hệ trích dẫn giữa input papers (Paper Mode)
   - Tự động phát hiện quan hệ trích dẫn giữa author papers (Author Mode)
-  - Fetch TẤT CẢ references (không giới hạn 20) để đảm bảo chính xác
-  - Log chi tiết mỗi cross-citation được tìm thấy
+  - Fetch TẤT CẢ references (no limit) để đảm bảo chính xác
 
 ## ✅ Update fix logs (24/11/2025)
 
@@ -291,6 +293,7 @@ citation-network-pagerank-system/
 ## TODO Fix logs 
 - [ ] Fix bug thanh tiến trình không hoạt động khi Run so sánh Multi Algorithms (Don't worry, be patient. Backend still working 'til the end).
 - [ ] Add filter/search functionality in results table
+- [ ] Khi chạy Multi Algorithm, Correlation Analysis không display đầy đủ nếu chạy >2 thuật toán
 
 ## Troubleshooting
 

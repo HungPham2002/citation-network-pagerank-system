@@ -417,6 +417,10 @@ def build_citation_network_from_papers(paper_identifiers, max_citations=20, inpu
             continue
 
     logger.info(f"✅ Found {cross_citation_count} cross-citations between input papers")
+    total_edges = sum(len(v) for v in citation_graph.values())
+    logger.info(f"✅ Network complete: {len(all_papers)} papers, {total_edges} edges")
+    
+    return all_papers, citation_graph 
 
 
 def calculate_pagerank(papers, citation_graph, damping_factor=0.85, max_iterations=100):
